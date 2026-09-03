@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Deployment" ALTER COLUMN "healthStatus" DROP NOT NULL,
+ALTER COLUMN "healthStatus" DROP DEFAULT,
+ALTER COLUMN "syncStatus" DROP NOT NULL,
+ALTER COLUMN "syncStatus" DROP DEFAULT;
