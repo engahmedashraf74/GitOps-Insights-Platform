@@ -14,17 +14,16 @@ export class DashboardService {
       });
 
     const totalDeployments =
-
       deployments.length;
 
     const healthyDeployments =
       deployments.filter(
-        (d: any) => d.healthStatus === 'Healthy',
+        (d) => d.healthStatus === 'Healthy',
       ).length;
 
     const failedDeployments =
       deployments.filter(
-         (d: any) => d.healthStatus === 'Degraded',
+        (d) => d.healthStatus === 'Degraded',
       ).length;
 
     const successRate =
@@ -78,10 +77,9 @@ export class DashboardService {
       deployments.length;
 
     const failed =
-  deployments.filter(
-    (d: { healthStatus: string }) =>
-      d.healthStatus === 'Degraded',
-  ).length;
+      deployments.filter(
+        (d) => d.healthStatus === 'Degraded',
+      ).length;
 
     const failureRate =
       total === 0
@@ -120,26 +118,20 @@ export class DashboardService {
         applicationId,
       );
 
-    const failureRate =
-      await this.getFailureRate(
-        applicationId,
-      );
-
     const frequency =
       await this.getDeploymentFrequency(
         applicationId,
       );
 
-    const timeline =
-      await this.getTimeline(
+    const failureRate =
+      await this.getFailureRate(
         applicationId,
       );
 
     return {
       stats,
-      failureRate,
       frequency,
-      timeline,
+      failureRate,
     };
   }
 }
