@@ -78,10 +78,10 @@ export class DashboardService {
       deployments.length;
 
     const failed =
-      deployments.filter(
-        (d) =>
-          (d: any) => d.healthStatus === 'Degraded',
-      ).length;
+  deployments.filter(
+    (d: { healthStatus: string }) =>
+      d.healthStatus === 'Degraded',
+  ).length;
 
     const failureRate =
       total === 0
