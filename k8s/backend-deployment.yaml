@@ -14,6 +14,9 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ahmedashraf74/gitops-backend:v1
+        image: ahmedashraf74/gitops-backend:v3
         ports:
         - containerPort: 3000
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://gitops:gitops123@postgres:5432/gitops_insights"
