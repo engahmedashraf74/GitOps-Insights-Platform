@@ -25,7 +25,7 @@ useEffect(() => {
       setError("");
 
       const response = await fetch(
-        "http://localhost:3000/auth/register",
+  `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
         {
           method: "POST",
           headers: {

@@ -40,7 +40,7 @@ export default function DashboardPage({
   async function loadEnvironments() {
     try {
       const response = await fetch(
-        `http://localhost:3000/environments/${applicationId}`,
+  `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
       );
 
       const data = await response.json();
@@ -54,7 +54,7 @@ export default function DashboardPage({
   async function createEnvironment() {
     try {
       await fetch(
-        "http://localhost:3000/environments",
+        `${process.env.NEXT_PUBLIC_API_URL}/environments`,
         {
           method: "POST",
           headers: {

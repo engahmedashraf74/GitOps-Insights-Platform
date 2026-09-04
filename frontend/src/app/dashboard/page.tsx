@@ -14,8 +14,7 @@ export default function DashboardPage() {
     async function loadData() {
       try {
         const projectsResponse =
-          await fetch(
-            "http://localhost:3000/projects",
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/projects`,
             {
               headers: {
                 Authorization: `Bearer ${localStorage.getItem(
@@ -31,10 +30,9 @@ export default function DashboardPage() {
         let applicationsCount = 0;
 
         for (const project of projects) {
-          const applicationsResponse =
-            await fetch(
-              `http://localhost:3000/applications/${project.id}`,
-            );
+          const applicationsResponse = await fetch(
+  `${process.env.NEXT_PUBLIC_API_URL}/applications/${project.id}`
+);
 
           const applications =
             await applicationsResponse.json();
