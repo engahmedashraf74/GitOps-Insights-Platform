@@ -63,11 +63,21 @@ useEffect(() => {
         />
 
         <button
-          onClick={handleLogin}
-          className="w-full rounded bg-black p-2 text-white"
-        >
-          Login
-        </button>
+  onClick={handleLogin}
+  className="w-full rounded bg-black p-2 text-white"
+>
+  Login
+</button>
+
+<p className="mt-4 text-center">
+  Don't have an account?{" "}
+  <a
+    href="/register"
+    className="font-bold text-blue-600"
+  >
+    Register
+  </a>
+</p>
       </div>
     </div>
   );

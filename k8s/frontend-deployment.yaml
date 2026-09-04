@@ -14,6 +14,6 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ahmedashraf74/gitops-frontend:v3
+        image: ahmedashraf74/gitops-frontend:v4
         ports:
         - containerPort: 3000
