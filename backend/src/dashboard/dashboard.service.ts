@@ -14,16 +14,17 @@ export class DashboardService {
       });
 
     const totalDeployments =
+
       deployments.length;
 
     const healthyDeployments =
       deployments.filter(
-        (d) => d.healthStatus === 'Healthy',
+        (d: any) => d.healthStatus === 'Healthy',
       ).length;
 
     const failedDeployments =
       deployments.filter(
-        (d) => d.healthStatus === 'Degraded',
+         (d: any) => d.healthStatus === 'Degraded',
       ).length;
 
     const successRate =
@@ -79,7 +80,7 @@ export class DashboardService {
     const failed =
       deployments.filter(
         (d) =>
-          d.healthStatus === 'Degraded',
+          (d: any) => d.healthStatus === 'Degraded',
       ).length;
 
     const failureRate =
