@@ -1,0 +1,70 @@
+[
+    {
+        "Id": "sha256:f3347fa02755f918c73d832f4c70108027460522b1a2e3df719d28ecdc970fbd",
+        "RepoTags": [
+            "ahmedashraf74/gitops-frontend:v5"
+        ],
+        "RepoDigests": [
+            "ahmedashraf74/gitops-frontend@sha256:f3347fa02755f918c73d832f4c70108027460522b1a2e3df719d28ecdc970fbd"
+        ],
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-09-04T23:37:53.502483404Z",
+        "Config": {
+            "ExposedPorts": {
+                "3000/tcp": {}
+            },
+            "Env": [
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "NODE_VERSION=22.23.2",
+                "YARN_VERSION=1.22.22"
+            ],
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Cmd": [
+                "npm",
+                "start"
+            ],
+            "WorkingDir": "/app",
+            "ArgsEscaped": true
+        },
+        "Architecture": "amd64",
+        "Os": "linux",
+        "Size": 341049835,
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:34884abbe92863fce933ed7c39c0e045631af0ed86d5cc0dfbdf9fdca426ce3c",
+                "sha256:5654eeaf04645c03fadc59bca7835753203d173222ab6ad8729f75b3dde98784",
+                "sha256:fe2c6446e3d9c78c5f734536452b9ea4bf7c4c46c4b4a575d2973b79691ec57a",
+                "sha256:baf2266664bacf240e13831e4192f8c92196c603ce8a20a4a50035ad87f8f2fb",
+                "sha256:9ad200adb9a6dd8526fb18f2725ebc1d26653aab9c973b236355754230a1bd84",
+                "sha256:cf8a0d06e657d9be8ec2bd5d465cd2eac0e18aca138cba5aca96d82eeed56887",
+                "sha256:976631da9fe19afbedc46b4200e60adf367313c8c8ae4420aa815017db443462",
+                "sha256:68ba85445268dc76e04e4f5ce9f846ce1508cd916d1756c03e97e4c19d6a330c",
+                "sha256:916c328795b4858e78cfd8bb3ae787aff6fea879f7fda9dada19fb190aab44c1"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-09-04T23:37:58.008799788Z"
+        },
+        "Descriptor": {
+            "mediaType": "application/vnd.oci.image.index.v1+json",
+            "digest": "sha256:f3347fa02755f918c73d832f4c70108027460522b1a2e3df719d28ecdc970fbd",
+            "size": 856
+        },
+        "Identity": {
+            "Pull": [
+                {
+                    "Repository": "docker.io/ahmedashraf74/gitops-frontend"
+                }
+            ],
+            "Build": [
+                {
+                    "Ref": "lp8o70jkkw6adorgg96as4744",
+                    "CreatedAt": "2026-09-04T23:37:58.775085205Z"
+                }
+            ]
+        }
+    }
+]
