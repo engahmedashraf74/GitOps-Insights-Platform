@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: ahmedashraf74/gitops-backend:v3
+        image: ahmedashraf74/gitops-backend:v2
         ports:
         - containerPort: 3000
         env:
