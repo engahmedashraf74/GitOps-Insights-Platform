@@ -3,6 +3,8 @@
 import { use, useEffect, useState } from "react";
 import { getOverview } from "@/services/dashboard";
 
+const API_URL = "http://192.168.49.2:30000";
+
 export default function DashboardPage({
   params,
 }: {
@@ -12,8 +14,7 @@ export default function DashboardPage({
 
   const applicationId = Number(id);
 
-  const [overview, setOverview] =
-    useState<any>(null);
+  const [overview, setOverview] = useState<any>(null);
 
   const [environments, setEnvironments] =
     useState<any[]>([]);
@@ -40,7 +41,7 @@ export default function DashboardPage({
   async function loadEnvironments() {
     try {
       const response = await fetch(
-  `${process.env.NEXT_PUBLIC_API_URL}/auth/register`,
+        `${API_URL}/environments`,
       );
 
       const data = await response.json();
@@ -54,7 +55,7 @@ export default function DashboardPage({
   async function createEnvironment() {
     try {
       await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/environments`,
+        `${API_URL}/environments`,
         {
           method: "POST",
           headers: {
