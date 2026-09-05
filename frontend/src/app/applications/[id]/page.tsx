@@ -39,18 +39,18 @@ export default function DashboardPage({
   }
 
   async function loadEnvironments() {
-    try {
-      const response = await fetch(
-        `${API_URL}/environments`,
-      );
+  try {
+    const response = await fetch(
+      `${API_URL}/environments/${applicationId}`,
+    );
 
-      const data = await response.json();
+    const data = await response.json();
 
-      setEnvironments(data);
-    } catch (error) {
-      console.error(error);
-    }
+    setEnvironments(data);
+  } catch (error) {
+    console.error(error);
   }
+}
 
   async function createEnvironment() {
     try {
