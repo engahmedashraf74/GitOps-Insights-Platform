@@ -7,10 +7,11 @@ export class ArgocdService {
   private readonly ARGOCD_URL =
     'https://argocd-server.argocd.svc.cluster.local';
 
-  private readonly TOKEN =
-    process.env.ARGOCD_TOKEN;
+  private readonly TOKEN = process.env.ARGOCD_TOKEN;
 
   async getApplication(name: string) {
+    console.log('ARGOCD_TOKEN exists:', !!this.TOKEN);
+
     const response = await fetch(
       `${this.ARGOCD_URL}/api/v1/applications/${name}`,
       {
@@ -20,6 +21,15 @@ export class ArgocdService {
       },
     );
 
-    return response.json();
+    console.log('ArgoCD Status:', response.status);
+
+    const data = await response.json();
+
+    console.log(
+      'ArgoCD Response:',
+      JSON.stringify(data, null, 2),
+    );
+
+    return data;
   }
 }
