@@ -10,6 +10,7 @@ import { ApplicationsModule } from './applications/applications.module';
 import { DeploymentsModule } from './deployments/deployments.module';
 import { EnvironmentsModule } from './environments/environments.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ArgocdModule } from './argocd/argocd.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -30,6 +31,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     DeploymentsModule,
     EnvironmentsModule,
     DashboardModule,
+    ArgocdModule,
+
   ],
   controllers: [AppController],
   providers: [AppService],

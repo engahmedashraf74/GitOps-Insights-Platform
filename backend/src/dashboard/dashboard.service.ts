@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ArgocdService } from '../argocd/argocd.service';
 
 @Injectable()
 export class DashboardService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+  private prisma: PrismaService,
+  private argocdService: ArgocdService,
+) {}
 
   async getStats(applicationId: number) {
     const deployments =
@@ -116,35 +120,91 @@ export class DashboardService {
       deployments: total,
     };
   }
+async getArgoData(applicationName: string) {
+  const app =
+    await this.argocdService.getApplication(
+      applicationName,
+    );
 
+  return {
+    syncStatus:
+      app.status?.sync?.status,
+
+    healthStatus:
+      app.status?.health?.status,
+
+    revision:
+      app.status?.sync?.revision,
+
+    repoUrl:
+      app.spec?.source?.repoURL,
+
+    targetRevision:
+      app.spec?.source?.targetRevision,
+  };
+}
   async getOverview(
-    applicationId: number,
-  ) {
-    const stats =
-      await this.getStats(
-        applicationId,
-      );
+  applicationId: number,
+) {
+  const app =
+    await this.argocdService.getApplication(
+      'gitops-insights',
+    );
 
-    const frequency =
-      await this.getDeploymentFrequency(
-        applicationId,
-      );
+  return {
+    stats: {
+      totalDeployments: 1,
 
-    const failureRate =
-      await this.getFailureRate(
-        applicationId,
-      );
+      healthyDeployments:
+        app.status?.health?.status ===
+        'Healthy'
+          ? 1
+          : 0,
 
-    const timeline =
-      await this.getTimeline(
-        applicationId,
-      );
+      failedDeployments:
+        app.status?.health?.status ===
+        'Degraded'
+          ? 1
+          : 0,
 
-    return {
-      stats,
-      frequency,
-      failureRate,
-      timeline,
-    };
-  }
+      successRate:
+        app.status?.health?.status ===
+        'Healthy'
+          ? 100
+          : 0,
+    },
+
+    frequency: {
+      deployments: 1,
+    },
+
+    failureRate: {
+      failureRate:
+        app.status?.health?.status ===
+        'Healthy'
+          ? 0
+          : 100,
+    },
+
+    timeline: [
+      {
+        revision:
+          app.status?.sync?.revision,
+
+        status: 'Succeeded',
+
+        syncStatus:
+          app.status?.sync?.status,
+
+        healthStatus:
+          app.status?.health?.status,
+
+        deployedAt:
+          new Date(),
+      },
+    ],
+  };
+}
+
+    
 }
