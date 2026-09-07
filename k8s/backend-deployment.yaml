@@ -2,21 +2,33 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: gitops-backend
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: gitops-backend
+
   template:
     metadata:
       labels:
         app: gitops-backend
+
     spec:
       containers:
-      - name: backend
-        image: ahmedashraf74/gitops-backend:v11
-        ports:
-        - containerPort: 3000
-        env:
-        - name: DATABASE_URL
-          value: "postgresql://gitops:gitops123@postgres:5432/gitops_insights"
+        - name: backend
+          image: ahmedashraf74/gitops-backend:v11
+
+          ports:
+            - containerPort: 3000
+
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://gitops:gitops123@postgres:5432/gitops_insights"
+
+            - name: ARGOCD_URL
+              value: "https://argocd-server.argocd.svc.cluster.local"
+
+            - name: ARGOCD_TOKEN
+              value: "PASTE_TOKEN_HERE"
