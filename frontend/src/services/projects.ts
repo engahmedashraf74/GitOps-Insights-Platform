@@ -1,18 +1,16 @@
 import { apiFetch } from "./api";
+import type { Project } from "@/types";
 
-export async function getProjects() {
-  return apiFetch("/projects");
+export async function getProjects(): Promise<Project[]> {
+  return apiFetch<Project[]>("/projects");
 }
 
 export async function createProject(
   name: string,
   description: string,
-) {
-  return apiFetch("/projects", {
+): Promise<Project> {
+  return apiFetch<Project>("/projects", {
     method: "POST",
-    body: JSON.stringify({
-      name,
-      description,
-    }),
+    body: JSON.stringify({ name, description }),
   });
 }
