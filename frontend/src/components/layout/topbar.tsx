@@ -11,17 +11,22 @@ export function Topbar({
   collapsed,
   onToggleCollapsed,
   onOpenMobile,
+  onOpenSearch,
+  onOpenNotifications,
+  unreadCount,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onOpenMobile: () => void;
+  onOpenSearch: () => void;
+  onOpenNotifications: () => void;
+  unreadCount: number;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [workspace, setWorkspace] = useState("Workspace");
   const [menuOpen, setMenuOpen] = useState(false);
-  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const session = getSessionUser();
@@ -34,15 +39,6 @@ export function Topbar({
   function logout() {
     clearToken();
     router.push("/login");
-  }
-
-  function onSearch(event: React.FormEvent) {
-    event.preventDefault();
-    const value = query.trim().toLowerCase();
-    if (value.includes("project")) router.push("/projects");
-    else if (value.includes("deploy")) router.push("/deployments");
-    else if (value.includes("app")) router.push("/applications");
-    else router.push("/applications");
   }
 
   return (
@@ -61,20 +57,40 @@ export function Topbar({
       >
         {collapsed ? <ChevronsRight size={18} /> : <ChevronsLeft size={18} />}
       </button>
-      <form onSubmit={onSearch} className="hidden max-w-md flex-1 md:block">
-        <SearchInput
-          placeholder="Search applications, projects, deployments"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </form>
+      <button
+        type="button"
+        onClick={onOpenSearch}
+        className="hidden max-w-md flex-1 text-left md:block"
+        aria-label="Open search"
+      >
+        <div className="pointer-events-none">
+          <SearchInput
+            readOnly
+            placeholder="Search applications, projects, deployments"
+          />
+        </div>
+        <span className="sr-only">Open global search</span>
+      </button>
+      <button
+        type="button"
+        className="rounded-lg border border-white/10 px-2 py-1 text-[11px] text-zinc-500 md:hidden"
+        onClick={onOpenSearch}
+      >
+        Search
+      </button>
+      <kbd className="hidden rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-zinc-500 lg:inline">
+        Ctrl K
+      </kbd>
       <div className="ml-auto flex items-center gap-2">
         <button
-          className="rounded-lg p-2 text-zinc-400 hover:bg-white/6"
+          className="relative rounded-lg p-2 text-zinc-400 hover:bg-white/6"
           aria-label="Notifications"
-          title="Notifications"
+          onClick={onOpenNotifications}
         >
           <Bell size={18} />
+          {unreadCount > 0 ? (
+            <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-teal-400" />
+          ) : null}
         </button>
         <div className="relative">
           <button
@@ -98,6 +114,12 @@ export function Topbar({
                 onClick={() => router.push("/settings")}
               >
                 Settings
+              </button>
+              <button
+                className="w-full rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/6"
+                onClick={() => router.push("/onboarding")}
+              >
+                Onboarding
               </button>
               <button
                 className="w-full rounded-md px-3 py-2 text-left text-sm text-rose-300 hover:bg-white/6"

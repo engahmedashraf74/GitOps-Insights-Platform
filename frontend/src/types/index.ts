@@ -146,3 +146,51 @@ export interface WorkspaceContext {
 }
 
 export type TimeRange = "7d" | "30d" | "90d";
+
+export type MetricSource = "api" | "derived" | "unavailable";
+
+export interface DoraMetric {
+  key: "deploymentFrequency" | "leadTime" | "changeFailureRate" | "mttr";
+  label: string;
+  value: string;
+  hint: string;
+  source: MetricSource;
+}
+
+export interface DoraMetrics {
+  deploymentFrequency: DoraMetric;
+  leadTime: DoraMetric;
+  changeFailureRate: DoraMetric;
+  mttr: DoraMetric;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  href?: string;
+  read: boolean;
+  tone: "info" | "warning" | "danger" | "success";
+  source: "derived" | "demo";
+}
+
+export interface SearchResult {
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  group: "Pages" | "Projects" | "Applications" | "Deployments";
+}
+
+export interface SuccessFailurePoint {
+  label: string;
+  succeeded: number;
+  failed: number;
+}
+
+export interface EnvironmentComparison {
+  environment: string;
+  deployments: number;
+  failures: number;
+}

@@ -63,7 +63,7 @@ export default function RegisterPage() {
       setToken(data.access_token);
       savePreferences({ ...getPreferences(), username: username.trim() });
       setSuccess("Account created. Redirecting to your workspace.");
-      router.push("/dashboard");
+      router.push("/onboarding");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed.");
     } finally {
