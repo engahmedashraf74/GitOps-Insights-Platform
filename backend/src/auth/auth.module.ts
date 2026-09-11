@@ -5,13 +5,16 @@ import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
+import { OrganizationsModule } from '../organizations/organizations.module';
+import { JWT_SECRET } from './jwt.constants';
 
 @Module({
   imports: [
     UsersModule,
+    OrganizationsModule,
     PassportModule,
     JwtModule.register({
-      secret: 'my-secret-key',
+      secret: JWT_SECRET,
       signOptions: {
         expiresIn: '1h',
       },

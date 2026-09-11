@@ -1,29 +1,33 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly organizations: OrganizationsService,
+  ) {}
 
-  create(
-    name: string,
-    description: string,
-    userId: number,
-  ) {
+  async create(name: string, description: string | undefined, userId: number) {
+    const organization = await this.organizations.ensureForUser(userId);
     return this.prisma.project.create({
       data: {
         name,
-        description,
+        description: description ?? null,
         userId,
+        organizationId: organization.id,
       },
     });
   }
 
-  findAll(userId: number) {
+  async findAll(userId: number) {
+    const organization = await this.organizations.ensureForUser(userId);
     return this.prisma.project.findMany({
       where: {
-        userId,
+        OR: [{ userId }, { organizationId: organization.id }],
       },
+      orderBy: { createdAt: 'desc' },
     });
   }
 }

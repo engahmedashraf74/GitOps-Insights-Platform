@@ -11,19 +11,21 @@ import { DeploymentsModule } from './deployments/deployments.module';
 import { EnvironmentsModule } from './environments/environments.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { ArgocdModule } from './argocd/argocd.module';
+import { OrganizationsModule } from './organizations/organizations.module';
+import { WorkspaceModule } from './workspace/workspace.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
 @Module({
   imports: [
-    // Distributed tracing, auto-correlated logs, request/job metrics, error
-    // telemetry, alarms, and more — out of the box. Sign up at https://observe.nestjs.com
     ObserveModule.forRoot({
       appKey: 'YOUR_APP_KEY',
       appSecret: 'YOUR_APP_SECRET',
       serviceId: 'backend',
     }),
     PrismaModule,
+    OrganizationsModule,
     UsersModule,
     AuthModule,
     ProjectsModule,
@@ -32,7 +34,8 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     EnvironmentsModule,
     DashboardModule,
     ArgocdModule,
-
+    WorkspaceModule,
+    IntegrationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

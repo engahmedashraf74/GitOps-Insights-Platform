@@ -1,35 +1,43 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+process.env.NODE_TLS_REJECT_UNAUTHORIZED ??= '0';
+
+export interface ArgoConnection {
+  url: string;
+  token: string;
+}
 
 @Injectable()
 export class ArgocdService {
-  private readonly ARGOCD_URL =
+  private readonly logger = new Logger(ArgocdService.name);
+
+  private readonly fallbackUrl =
+    process.env.ARGOCD_URL ||
     'https://argocd-server.argocd.svc.cluster.local';
 
-  private readonly TOKEN = process.env.ARGOCD_TOKEN;
+  private readonly fallbackToken = process.env.ARGOCD_TOKEN;
 
-  async getApplication(name: string) {
-    console.log('ARGOCD_TOKEN exists:', !!this.TOKEN);
+  async getApplication(name: string, connection?: ArgoConnection) {
+    const url = (connection?.url || this.fallbackUrl).replace(/\/$/, '');
+    const token = connection?.token || this.fallbackToken;
 
-    const response = await fetch(
-      `${this.ARGOCD_URL}/api/v1/applications/${name}`,
-      {
-        headers: {
-          Authorization: `Bearer ${this.TOKEN}`,
-        },
-      },
-    );
+    const response = await fetch(`${url}/api/v1/applications/${name}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
 
-    console.log('ArgoCD Status:', response.status);
+    this.logger.log(`Argo CD application lookup status ${response.status}`);
+    return response.json() as Promise<Record<string, unknown>>;
+  }
 
-    const data = await response.json();
+  async testConnection(url: string, token: string): Promise<{ ok: boolean; status: number }> {
+    const normalized = url.replace(/\/$/, '');
+    const response = await fetch(`${normalized}/api/v1/applications?limit=1`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-    console.log(
-      'ArgoCD Response:',
-      JSON.stringify(data, null, 2),
-    );
-
-    return data;
+    return {
+      ok: response.ok,
+      status: response.status,
+    };
   }
 }

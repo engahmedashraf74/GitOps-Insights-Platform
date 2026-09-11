@@ -1,47 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ArgocdService } from '../argocd/argocd.service';
+import { IntegrationsService } from '../integrations/integrations.service';
+import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
 
 @Injectable()
 export class DashboardService {
   constructor(
-  private prisma: PrismaService,
-  private argocdService: ArgocdService,
-) {}
+    private readonly prisma: PrismaService,
+    private readonly argocdService: ArgocdService,
+    private readonly integrations: IntegrationsService,
+  ) {}
 
   async getStats(applicationId: number) {
-    const deployments =
-      await this.prisma.deployment.findMany({
-        where: {
-          applicationId,
-        },
-      });
-
-    const totalDeployments =
-      deployments.length;
-
-    const healthyDeployments =
-      deployments.filter(
-        (deployment: any) =>
-          deployment.healthStatus ===
-          'Healthy',
-      ).length;
-
-    const failedDeployments =
-      deployments.filter(
-        (deployment: any) =>
-          deployment.healthStatus ===
-          'Degraded',
-      ).length;
-
+    const deployments = await this.prisma.deployment.findMany({
+      where: { applicationId },
+    });
+    const totalDeployments = deployments.length;
+    const healthyDeployments = deployments.filter(isSucceeded).length;
+    const failedDeployments = deployments.filter(isFailed).length;
     const successRate =
       totalDeployments === 0
         ? 0
-        : (
-            (healthyDeployments /
-              totalDeployments) *
-            100
-          ).toFixed(2);
+        : Number(((healthyDeployments / totalDeployments) * 100).toFixed(2));
 
     return {
       totalDeployments,
@@ -51,160 +32,105 @@ export class DashboardService {
     };
   }
 
-  async getTimeline(
-    applicationId: number,
-  ) {
+  getTimeline(applicationId: number) {
     return this.prisma.deployment.findMany({
-      where: {
-        applicationId,
-      },
-      orderBy: {
-        deployedAt: 'desc',
-      },
+      where: { applicationId },
+      orderBy: { deployedAt: 'desc' },
       select: {
+        id: true,
         revision: true,
         status: true,
         syncStatus: true,
         healthStatus: true,
+        environment: true,
         deployedAt: true,
+        applicationId: true,
       },
     });
   }
 
-  async getFailureRate(
-    applicationId: number,
-  ) {
-    const deployments =
-      await this.prisma.deployment.findMany({
-        where: {
-          applicationId,
-        },
-      });
-
-    const total =
-      deployments.length;
-
-    const failed =
-      deployments.filter(
-        (deployment: any) =>
-          deployment.healthStatus ===
-          'Degraded',
-      ).length;
-
-    const failureRate =
-      total === 0
-        ? 0
-        : (
-            (failed / total) *
-            100
-          ).toFixed(2);
-
+  async getFailureRate(applicationId: number) {
+    const deployments = await this.prisma.deployment.findMany({
+      where: { applicationId },
+    });
+    const total = deployments.length;
+    const failed = deployments.filter(isFailed).length;
     return {
       totalDeployments: total,
       failedDeployments: failed,
-      failureRate,
+      failureRate:
+        total === 0 ? 0 : Number(((failed / total) * 100).toFixed(2)),
     };
   }
 
-  async getDeploymentFrequency(
-    applicationId: number,
-  ) {
-    const total =
-      await this.prisma.deployment.count({
-        where: {
-          applicationId,
-        },
-      });
+  async getDeploymentFrequency(applicationId: number) {
+    const deployments = await this.prisma.deployment.count({
+      where: { applicationId },
+    });
+    return { deployments };
+  }
+
+  async getArgoData(applicationName: string, userId?: number) {
+    const connection = userId
+      ? await this.integrations.getArgoConnection(userId).catch(() => undefined)
+      : undefined;
+    const app = (await this.argocdService.getApplication(
+      applicationName,
+      connection,
+    )) as {
+      status?: {
+        sync?: { status?: string; revision?: string };
+        health?: { status?: string };
+      };
+      spec?: { source?: { repoURL?: string; targetRevision?: string } };
+    };
 
     return {
-      deployments: total,
+      syncStatus: app.status?.sync?.status,
+      healthStatus: app.status?.health?.status,
+      revision: app.status?.sync?.revision,
+      repoUrl: app.spec?.source?.repoURL,
+      targetRevision: app.spec?.source?.targetRevision,
     };
   }
-async getArgoData(applicationName: string) {
-  const app =
-    await this.argocdService.getApplication(
-      applicationName,
-    );
 
-  return {
-    syncStatus:
-      app.status?.sync?.status,
+  async getOverview(applicationId: number, userId?: number) {
+    const application = await this.prisma.application.findUnique({
+      where: { id: applicationId },
+    });
+    const [stats, frequency, failureRate, timeline] = await Promise.all([
+      this.getStats(applicationId),
+      this.getDeploymentFrequency(applicationId),
+      this.getFailureRate(applicationId),
+      this.getTimeline(applicationId),
+    ]);
 
-    healthStatus:
-      app.status?.health?.status,
+    if (application) {
+      try {
+        const argo = await this.getArgoData(application.name, userId);
+        if (timeline.length === 0 && argo.revision) {
+          return {
+            stats,
+            frequency,
+            failureRate,
+            timeline: [
+              {
+                revision: argo.revision,
+                status: 'Succeeded',
+                syncStatus: argo.syncStatus,
+                healthStatus: argo.healthStatus,
+                environment: undefined,
+                deployedAt: new Date(),
+                applicationId,
+              },
+            ],
+          };
+        }
+      } catch {
+        /* Argo overlay is optional */
+      }
+    }
 
-    revision:
-      app.status?.sync?.revision,
-
-    repoUrl:
-      app.spec?.source?.repoURL,
-
-    targetRevision:
-      app.spec?.source?.targetRevision,
-  };
-}
-  async getOverview(
-  applicationId: number,
-) {
-  const app =
-    await this.argocdService.getApplication(
-      'gitops-insights',
-    );
-
-  return {
-    stats: {
-      totalDeployments: 1,
-
-      healthyDeployments:
-        app.status?.health?.status ===
-        'Healthy'
-          ? 1
-          : 0,
-
-      failedDeployments:
-        app.status?.health?.status ===
-        'Degraded'
-          ? 1
-          : 0,
-
-      successRate:
-        app.status?.health?.status ===
-        'Healthy'
-          ? 100
-          : 0,
-    },
-
-    frequency: {
-      deployments: 1,
-    },
-
-    failureRate: {
-      failureRate:
-        app.status?.health?.status ===
-        'Healthy'
-          ? 0
-          : 100,
-    },
-
-    timeline: [
-      {
-        revision:
-          app.status?.sync?.revision,
-
-        status: 'Succeeded',
-
-        syncStatus:
-          app.status?.sync?.status,
-
-        healthStatus:
-          app.status?.health?.status,
-
-        deployedAt:
-          new Date(),
-      },
-    ],
-  };
-}
-
-    
+    return { stats, frequency, failureRate, timeline };
+  }
 }
