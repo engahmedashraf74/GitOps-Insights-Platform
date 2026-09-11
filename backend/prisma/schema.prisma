@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
@@ -8,62 +8,199 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum OrgRole {
+  owner
+  admin
+  member
+}
+
+enum IntegrationProvider {
+  argocd
+  github
+  gitlab
+  bitbucket
+  slack
+}
+
+enum IntegrationStatus {
+  connected
+  disconnected
+  coming_soon
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
+  username  String?  @unique
   password  String
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  projects  Project[]
+  projects      Project[]
+  memberships   OrganizationMember[]
+  preference    UserPreference?
+  createdOrgs   Organization[]       @relation("OrgCreator")
+  notifications Notification[]       @relation("NotificationActor")
 }
-model Project {
+
+model Organization {
   id          Int      @id @default(autoincrement())
   name        String
-  description String?
+  slug        String   @unique
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById Int?
+  createdBy   User?    @relation("OrgCreator", fields: [createdById], references: [id])
 
-  userId      Int
-  user        User @relation(fields: [userId], references: [id])
-  applications Application[]
-
+  members       OrganizationMember[]
+  projects      Project[]
+  integrations  Integration[]
+  notifications Notification[]
 }
+
+model OrganizationMember {
+  id             Int      @id @default(autoincrement())
+  role           OrgRole  @default(owner)
+  organizationId Int
+  userId         Int
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model UserPreference {
+  id                 Int     @id @default(autoincrement())
+  userId             Int     @unique
+  theme              String  @default("dark")
+  timezone           String  @default("UTC")
+  defaultProjectId   Int?
+  emailNotifications Boolean @default(true)
+  deploymentFailures Boolean @default(true)
+  weeklySummary      Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Project {
+  id             Int      @id @default(autoincrement())
+  name           String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  userId         Int
+  organizationId Int?
+
+  user           User           @relation(fields: [userId], references: [id])
+  organization   Organization?  @relation(fields: [organizationId], references: [id])
+  applications   Application[]
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
 model Application {
   id          Int      @id @default(autoincrement())
   name        String
   description String?
   createdAt   DateTime @default(now())
-
+  updatedAt   DateTime @updatedAt
   repoUrl     String?
   branch      String?
   path        String?
-
   projectId   Int
-  project     Project @relation(fields: [projectId], references: [id])
 
-  deployments Deployment[]
-  environments Environment[]
+  project        Project            @relation(fields: [projectId], references: [id])
+  deployments    Deployment[]
+  environments   Environment[]
+  events         ApplicationEvent[]
+  notifications  Notification[]
+
+  @@index([projectId])
 }
-
 
 model Environment {
   id            Int      @id @default(autoincrement())
   name          String
   createdAt     DateTime @default(now())
-
   applicationId Int
-  application   Application @relation(fields: [applicationId], references: [id])
+
+  application Application  @relation(fields: [applicationId], references: [id])
+  deployments Deployment[]
+
+  @@index([applicationId])
 }
+
 model Deployment {
-  id          Int      @id @default(autoincrement())
-  revision    String
-  status      String
-  syncStatus   String?
-  healthStatus String?
-
-
-  environment String
-  deployedAt  DateTime @default(now())
-
+  id            Int      @id @default(autoincrement())
+  revision      String
+  status        String
+  syncStatus    String?
+  healthStatus  String?
+  environment   String
+  deployedAt    DateTime @default(now())
+  commitSha     String?
+  committedAt   DateTime?
+  startedAt     DateTime?
+  finishedAt    DateTime?
   applicationId Int
-  application   Application @relation(fields: [applicationId], references: [id])
+  environmentId Int?
+
+  application     Application  @relation(fields: [applicationId], references: [id])
+  environmentRef  Environment? @relation(fields: [environmentId], references: [id])
+
+  @@index([applicationId])
+  @@index([deployedAt])
+  @@index([status])
+}
+
+model Integration {
+  id                   Int                @id @default(autoincrement())
+  provider             IntegrationProvider
+  status               IntegrationStatus  @default(disconnected)
+  url                  String?
+  credentialsEncrypted String?
+  organizationId       Int
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, provider])
+}
+
+model Notification {
+  id             Int       @id @default(autoincrement())
+  type           String
+  title          String
+  body           String
+  href           String?
+  tone           String    @default("info")
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+  organizationId Int
+  applicationId  Int?
+  actorUserId    Int?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  application  Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  actor        User?        @relation("NotificationActor", fields: [actorUserId], references: [id])
+
+  @@index([organizationId, createdAt])
+}
+
+model ApplicationEvent {
+  id            Int      @id @default(autoincrement())
+  type          String
+  message       String
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  applicationId Int
+
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId, createdAt])
 }
