@@ -50,6 +50,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const data = await login(email.trim(), password);
+      if (!data?.access_token) {
+        setError("Login succeeded but no access_token was returned.");
+        return;
+      }
       setToken(data.access_token);
       setRememberedEmail(remember ? email.trim() : null);
       router.push("/dashboard");

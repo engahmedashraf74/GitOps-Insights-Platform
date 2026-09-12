@@ -17,6 +17,7 @@ import { JWT_SECRET } from './jwt.constants';
       secret: JWT_SECRET,
       signOptions: {
         expiresIn: '1h',
+        algorithm: 'HS256',
       },
     }),
   ],

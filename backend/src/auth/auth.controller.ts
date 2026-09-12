@@ -1,7 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import type { JwtUser } from '../common/types/jwt-user';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -16,5 +19,11 @@ export class AuthController {
   @Post('login')
   login(@Body() body: LoginDto) {
     return this.authService.login(body.email, body.password);
+  }
+
+  @Get('me')
+  @JwtAuth()
+  me(@CurrentUser() user: JwtUser) {
+    return user;
   }
 }

@@ -60,6 +60,10 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       const data = await registerAccount(email.trim(), password);
+      if (!data?.access_token) {
+        setError("Account created but no access_token was returned.");
+        return;
+      }
       setToken(data.access_token);
       savePreferences({ ...getPreferences(), username: username.trim() });
       setSuccess("Account created. Redirecting to your workspace.");
