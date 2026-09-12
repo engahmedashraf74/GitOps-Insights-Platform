@@ -105,21 +105,43 @@ export class DashboardService {
       this.getTimeline(applicationId),
     ]);
 
+    let current = {
+      health: application?.healthStatus || 'Unknown',
+      sync: application?.syncStatus || 'Unknown',
+      revision: application?.revision || '',
+      repoUrl: application?.repoUrl || '',
+      namespace: application?.namespace || '',
+      cluster: application?.cluster || '',
+      lastDeployment:
+        timeline[0]?.deployedAt ?? application?.lastObservedAt ?? null,
+    };
+
     if (application) {
       try {
         const argo = await this.getArgoData(application.name, userId);
+        current = {
+          health: argo.healthStatus || current.health,
+          sync: argo.syncStatus || current.sync,
+          revision: argo.revision || current.revision,
+          repoUrl: argo.repoUrl || current.repoUrl,
+          namespace: current.namespace,
+          cluster: current.cluster,
+          lastDeployment: current.lastDeployment,
+        };
         if (timeline.length === 0 && argo.revision) {
           return {
+            application: { ...application, ...current },
             stats,
             frequency,
             failureRate,
+            current,
             timeline: [
               {
                 revision: argo.revision,
                 status: 'Succeeded',
                 syncStatus: argo.syncStatus,
                 healthStatus: argo.healthStatus,
-                environment: undefined,
+                environment: application.namespace ?? undefined,
                 deployedAt: new Date(),
                 applicationId,
               },
@@ -127,10 +149,17 @@ export class DashboardService {
           };
         }
       } catch {
-        /* Argo overlay is optional */
+        /* cached Argo metadata is enough */
       }
     }
 
-    return { stats, frequency, failureRate, timeline };
+    return {
+      application,
+      stats,
+      frequency,
+      failureRate,
+      current,
+      timeline,
+    };
   }
 }

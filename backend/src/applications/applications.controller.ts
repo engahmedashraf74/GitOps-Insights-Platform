@@ -12,13 +12,23 @@ import type { JwtUser } from '../common/types/jwt-user';
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) {}
 
+  @Post('sync')
+  @ApiOperation({ summary: 'Discover Argo CD applications and upsert them into the workspace' })
+  sync(@CurrentUser() user: JwtUser) {
+    return this.applicationsService.syncFromArgo(user.userId);
+  }
+
   @Post()
-  create(@CurrentUser() user: JwtUser, @Body() body: CreateApplicationDto) {
-    return this.applicationsService.create(user.userId, body);
+  @ApiOperation({
+    deprecated: true,
+    summary: 'Removed: applications are imported from Argo CD',
+  })
+  create(@Body() _body: CreateApplicationDto) {
+    return this.applicationsService.create();
   }
 
   @Get()
-  @ApiOperation({ summary: 'List applications in the current workspace' })
+  @ApiOperation({ summary: 'List imported Argo CD applications' })
   findAll(@CurrentUser() user: JwtUser) {
     return this.applicationsService.findAllForUser(user.userId);
   }
@@ -66,7 +76,7 @@ export class ApplicationsController {
 
   @Get(':projectId')
   @ApiOperation({
-    summary: 'List applications for a project (legacy frontend contract)',
+    summary: 'List applications for an Argo CD project (legacy frontend contract)',
   })
   findAllByProject(@Param('projectId', ParseIntPipe) projectId: number) {
     return this.applicationsService.findAllByProject(projectId);

@@ -33,27 +33,30 @@ JWT payload is unchanged: `{ userId, email }`.
 
 DORA fields: `value`, `source` (`api` \| `unavailable`), `hint`, `trend`.
 
-## Projects (existing)
+## Projects
 
-| Method | Path |
-|---|---|
-| GET | `/projects` |
-| POST | `/projects` `{ name, description? }` |
-
-Projects are attached to the caller’s organization.
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/projects` | Argo CD projects created during application sync |
+| POST | `/projects` | **Removed.** Returns 400 — projects come from Argo CD |
 
 ## Applications
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/applications` | Workspace list |
-| POST | `/applications` | Existing create body |
+| POST | `/applications/sync` | Discover Argo CD apps and upsert metadata + history |
+| GET | `/applications` | Imported applications (includes health/sync/revision/namespace/cluster) |
+| POST | `/applications` | **Removed.** Returns 400 — use sync |
 | GET | `/applications/by-id/:id` | Single app |
-| GET | `/applications/:id/overview` | Stats + timeline + optional Argo overlay |
-| GET | `/applications/:id/repository` | Repo fields |
+| GET | `/applications/:id/overview` | Live Argo overlay + cached history |
+| GET | `/applications/:id/repository` | Repo, namespace, cluster from Argo metadata |
 | GET | `/applications/:id/events` | ApplicationEvent rows |
 | GET | `/applications/repository/:id` | Legacy alias |
-| GET | `/applications/:projectId` | **Legacy** list-by-project used by current frontend |
+| GET | `/applications/:projectId` | **Legacy** list-by-project |
+
+`GET /workspace/snapshot` includes `argocd: { connected, url, lastSyncedAt }`.
+
+A scheduled job syncs every 5 minutes for connected organizations.
 
 ## Deployments
 

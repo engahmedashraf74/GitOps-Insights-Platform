@@ -3,6 +3,7 @@ import { ApplicationsService } from './applications.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ArgocdService } from '../argocd/argocd.service';
+import { ArgocdSyncService } from '../argocd/argocd-sync.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 
 describe('ApplicationsService', () => {
@@ -15,6 +16,7 @@ describe('ApplicationsService', () => {
         { provide: PrismaService, useValue: {} },
         { provide: OrganizationsService, useValue: {} },
         { provide: ArgocdService, useValue: {} },
+        { provide: ArgocdSyncService, useValue: {} },
         { provide: IntegrationsService, useValue: {} },
       ],
     }).compile();

@@ -64,6 +64,7 @@ export class IntegrationsService {
           ? IntegrationStatus.coming_soon
           : (match?.status ?? IntegrationStatus.disconnected),
         url: match?.url ?? undefined,
+        lastSyncedAt: match?.lastSyncedAt ?? undefined,
         connected: match?.status === IntegrationStatus.connected,
       };
     });
@@ -114,6 +115,7 @@ export class IntegrationsService {
       provider: record.provider,
       status: record.status,
       url: record.url,
+      lastSyncedAt: record.lastSyncedAt,
     };
   }
 

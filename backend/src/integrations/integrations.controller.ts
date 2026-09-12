@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IntegrationsService } from './integrations.service';
+import { ArgocdSyncService } from '../argocd/argocd-sync.service';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtUser } from '../common/types/jwt-user';
@@ -10,7 +11,10 @@ import { ConnectArgoCdDto, TestArgoCdDto } from './dto/integration.dto';
 @JwtAuth()
 @Controller('integrations')
 export class IntegrationsController {
-  constructor(private readonly integrationsService: IntegrationsService) {}
+  constructor(
+    private readonly integrationsService: IntegrationsService,
+    private readonly argocdSync: ArgocdSyncService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'List integrations. Tokens are never returned.' })
@@ -24,8 +28,14 @@ export class IntegrationsController {
   }
 
   @Post('argocd/connect')
-  connect(@CurrentUser() user: JwtUser, @Body() body: ConnectArgoCdDto) {
-    return this.integrationsService.connect(user, body.url, body.token);
+  async connect(@CurrentUser() user: JwtUser, @Body() body: ConnectArgoCdDto) {
+    const connected = await this.integrationsService.connect(
+      user,
+      body.url,
+      body.token,
+    );
+    const sync = await this.argocdSync.syncForUser(user.userId);
+    return { ...connected, sync };
   }
 
   @Delete('argocd')

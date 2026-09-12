@@ -18,7 +18,7 @@ export class ProjectsController {
   }
 
   @Post()
-  create(@Body() body: CreateProjectDto, @CurrentUser() user: JwtUser) {
-    return this.projectsService.create(body.name, body.description, user.userId);
+  create(@Body() _body: CreateProjectDto) {
+    return this.projectsService.create();
   }
 }

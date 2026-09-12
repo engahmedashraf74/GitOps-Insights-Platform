@@ -1,14 +1,15 @@
 import {
-  ForbiddenException,
+  BadRequestException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ArgocdService } from '../argocd/argocd.service';
+import { ArgocdSyncService } from '../argocd/argocd-sync.service';
 import { IntegrationsService } from '../integrations/integrations.service';
-import { CreateApplicationDto } from './dto/create-application.dto';
 import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
+import { mapArgoApplication } from '../argocd/argo-application';
 
 @Injectable()
 export class ApplicationsService {
@@ -16,34 +17,34 @@ export class ApplicationsService {
     private readonly prisma: PrismaService,
     private readonly organizations: OrganizationsService,
     private readonly argocd: ArgocdService,
+    private readonly sync: ArgocdSyncService,
     private readonly integrations: IntegrationsService,
   ) {}
 
-  async create(userId: number, dto: CreateApplicationDto) {
-    await this.assertProjectAccess(userId, dto.projectId);
-    return this.prisma.application.create({
-      data: {
-        name: dto.name,
-        description: dto.description,
-        repoUrl: dto.repoUrl,
-        branch: dto.branch,
-        path: dto.path,
-        projectId: dto.projectId,
-      },
-    });
+  create() {
+    throw new BadRequestException(
+      'Applications are imported from Argo CD. Connect the integration and use Sync Applications.',
+    );
+  }
+
+  syncFromArgo(userId: number) {
+    return this.sync.syncForUser(userId);
   }
 
   async findAllForUser(userId: number) {
     const projectIds = await this.organizations.getAccessibleProjectIds(userId);
     return this.prisma.application.findMany({
       where: { projectId: { in: projectIds } },
-      orderBy: { createdAt: 'desc' },
+      include: { project: true },
+      orderBy: { name: 'asc' },
     });
   }
 
   findAllByProject(projectId: number) {
     return this.prisma.application.findMany({
       where: { projectId },
+      include: { project: true },
+      orderBy: { name: 'asc' },
     });
   }
 
@@ -67,6 +68,8 @@ export class ApplicationsService {
       repoUrl: application.repoUrl,
       branch: application.branch,
       path: application.path,
+      namespace: application.namespace,
+      cluster: application.cluster,
     };
   }
 
@@ -86,35 +89,57 @@ export class ApplicationsService {
       orderBy: { deployedAt: 'desc' },
     });
 
+    let live = {
+      health: application.healthStatus || 'Unknown',
+      sync: application.syncStatus || 'Unknown',
+      revision: application.revision || '',
+      repoUrl: application.repoUrl || '',
+      namespace: application.namespace || '',
+      cluster: application.cluster || '',
+    };
+
+    try {
+      const connection = await this.integrations.getArgoConnection(userId);
+      if (connection) {
+        const payload = await this.argocd.getApplication(
+          application.name,
+          connection,
+        );
+        const mapped = mapArgoApplication(payload);
+        if (mapped) {
+          live = {
+            health: mapped.healthStatus,
+            sync: mapped.syncStatus,
+            revision: mapped.revision,
+            repoUrl: mapped.repoUrl || live.repoUrl,
+            namespace: mapped.namespace || live.namespace,
+            cluster: mapped.cluster || live.cluster,
+          };
+        }
+      }
+    } catch {
+      /* cached Argo metadata is enough for the overview */
+    }
+
+    const latest = deployments[0];
     const total = deployments.length;
     const succeeded = deployments.filter(isSucceeded).length;
     const failed = deployments.filter(isFailed).length;
-    const successRate = total === 0 ? 0 : Number(((succeeded / total) * 100).toFixed(2));
-    const failureRate = total === 0 ? 0 : Number(((failed / total) * 100).toFixed(2));
-    const latest = deployments[0];
-
-    let argo: Record<string, unknown> | null = null;
-    try {
-      const connection = await this.integrations.getArgoConnection(userId);
-      const payload = await this.argocd.getApplication(application.name, connection);
-      argo = payload;
-    } catch {
-      argo = null;
-    }
-
-    const argoStatus = asRecord(asRecord(argo)?.status);
-    const health = String(
-      asRecord(argoStatus?.health)?.status || latest?.healthStatus || 'Unknown',
-    );
-    const sync = String(
-      asRecord(argoStatus?.sync)?.status || latest?.syncStatus || 'Unknown',
-    );
-    const revision = String(
-      asRecord(argoStatus?.sync)?.revision || latest?.revision || '',
-    );
+    const successRate =
+      total === 0 ? 0 : Number(((succeeded / total) * 100).toFixed(2));
+    const failureRate =
+      total === 0 ? 0 : Number(((failed / total) * 100).toFixed(2));
 
     return {
-      application,
+      application: {
+        ...application,
+        healthStatus: live.health,
+        syncStatus: live.sync,
+        revision: live.revision,
+        repoUrl: live.repoUrl || application.repoUrl,
+        namespace: live.namespace || application.namespace,
+        cluster: live.cluster || application.cluster,
+      },
       stats: {
         totalDeployments: total,
         healthyDeployments: succeeded,
@@ -128,26 +153,15 @@ export class ApplicationsService {
         failureRate,
       },
       current: {
-        health,
-        sync,
-        revision,
-        lastDeployment: latest?.deployedAt ?? null,
+        health: live.health,
+        sync: live.sync,
+        revision: live.revision,
+        repoUrl: live.repoUrl,
+        namespace: live.namespace,
+        cluster: live.cluster,
+        lastDeployment: latest?.deployedAt ?? application.lastObservedAt,
       },
       timeline: deployments,
     };
   }
-
-  private async assertProjectAccess(userId: number, projectId: number) {
-    const projectIds = await this.organizations.getAccessibleProjectIds(userId);
-    if (!projectIds.includes(projectId)) {
-      throw new ForbiddenException('Project is not in this workspace');
-    }
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>;
-  }
-  return undefined;
 }

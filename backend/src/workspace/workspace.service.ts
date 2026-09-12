@@ -29,9 +29,27 @@ export class WorkspaceService {
   }
 
   async snapshot(user: JwtUser) {
+    const organization = await this.organizations.ensureForUser(user.userId);
     const { projects, applications, deployments } =
       await this.loadGraph(user.userId);
-    return { projects, applications, deployments };
+    const integration = await this.prisma.integration.findUnique({
+      where: {
+        organizationId_provider: {
+          organizationId: organization.id,
+          provider: 'argocd',
+        },
+      },
+    });
+    return {
+      projects,
+      applications,
+      deployments,
+      argocd: {
+        connected: integration?.status === 'connected',
+        url: integration?.url ?? null,
+        lastSyncedAt: integration?.lastSyncedAt ?? null,
+      },
+    };
   }
 
   async metrics(user: JwtUser) {
@@ -45,7 +63,12 @@ export class WorkspaceService {
     let healthyApplications = 0;
     for (const application of applications) {
       const latest = latestByApp.get(application.id);
-      if ((latest?.healthStatus || '').toLowerCase() === 'healthy') {
+      const health = (
+        application.healthStatus ||
+        latest?.healthStatus ||
+        ''
+      ).toLowerCase();
+      if (health === 'healthy') {
         healthyApplications += 1;
       }
     }

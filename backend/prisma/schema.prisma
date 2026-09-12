@@ -103,15 +103,22 @@ model Project {
 }
 
 model Application {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  repoUrl     String?
-  branch      String?
-  path        String?
-  projectId   Int
+  id             Int       @id @default(autoincrement())
+  name           String
+  description    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  repoUrl        String?
+  branch         String?
+  path           String?
+  projectId      Int
+  argoUid        String?
+  namespace      String?
+  cluster        String?
+  syncStatus     String?
+  healthStatus   String?
+  revision       String?
+  lastObservedAt DateTime?
 
   project        Project            @relation(fields: [projectId], references: [id])
   deployments    Deployment[]
@@ -120,6 +127,8 @@ model Application {
   notifications  Notification[]
 
   @@index([projectId])
+  @@index([name])
+  @@index([argoUid])
 }
 
 model Environment {
@@ -163,6 +172,7 @@ model Integration {
   status               IntegrationStatus  @default(disconnected)
   url                  String?
   credentialsEncrypted String?
+  lastSyncedAt         DateTime?
   organizationId       Int
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
