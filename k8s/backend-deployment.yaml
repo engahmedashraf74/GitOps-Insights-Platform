@@ -73,7 +73,7 @@ spec:
             - name: ARGOCD_URL
               value: "https://argocd-server.argocd.svc.cluster.local"
             - name: ARGOCD_TOKEN
-              value: "PASTE_TOKEN_HERE"
+              value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJhZG1pbjphcGlLZXkiLCJuYmYiOjE3ODkzMTg0MTgsImlhdCI6MTc4OTMxODQxOCwianRpIjoiNTUxNDI1NzQtZTFkZC00MzViLTlkNzgtYWM4MjYwOTllYzExIn0.qJ3eI-arJ1S4o-d-V_pcYGMEbRsw1l1eDKw0rpGMPBM"
           command: ["sh", "-c"]
           args:
             - npx prisma migrate deploy && node dist/main.js
