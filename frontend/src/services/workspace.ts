@@ -1,30 +1,9 @@
-import { getApplications } from "./applications";
-import { getDeployments } from "./deployments";
-import { getProjects } from "./projects";
+import { apiFetch } from "./api";
 import type { Application, Deployment, Project } from "@/types";
 import type { WorkspaceSnapshot } from "@/lib/metrics";
 
 export async function loadWorkspaceSnapshot(): Promise<WorkspaceSnapshot> {
-  const projects = await getProjects();
-  const applicationGroups = await Promise.all(
-    projects.map((project) => getApplications(project.id)),
-  );
-  const applications = applicationGroups.flat();
-  const deploymentGroups = await Promise.all(
-    applications.map(async (application) => {
-      const deployments = await getDeployments(application.id);
-      return deployments.map((deployment) => ({
-        ...deployment,
-        applicationId: deployment.applicationId ?? application.id,
-      }));
-    }),
-  );
-
-  return {
-    projects,
-    applications,
-    deployments: deploymentGroups.flat(),
-  };
+  return apiFetch<WorkspaceSnapshot>("/workspace/snapshot");
 }
 
 export type EnrichedApplication = Application & {
@@ -53,9 +32,30 @@ export function enrichApplications(
     }
   }
 
-  return snapshot.applications.map((application) => ({
-    ...application,
-    project: projectMap.get(application.projectId),
-    latestDeployment: latestByApp.get(application.id),
-  }));
+  return snapshot.applications.map((application) => {
+    const latest = latestByApp.get(application.id);
+    return {
+      ...application,
+      project: projectMap.get(application.projectId),
+      latestDeployment: latest
+        ? {
+            ...latest,
+            healthStatus: application.healthStatus ?? latest.healthStatus,
+            syncStatus: application.syncStatus ?? latest.syncStatus,
+            revision: application.revision ?? latest.revision,
+            environment: application.namespace ?? latest.environment,
+          }
+        : application.revision || application.healthStatus
+          ? {
+              revision: application.revision || "",
+              status: "Succeeded",
+              healthStatus: application.healthStatus,
+              syncStatus: application.syncStatus,
+              environment: application.namespace ?? undefined,
+              deployedAt: application.lastObservedAt ?? undefined,
+              applicationId: application.id,
+            }
+          : undefined,
+    };
+  });
 }

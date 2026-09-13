@@ -13,6 +13,11 @@ export interface WorkspaceSnapshot {
   projects: Project[];
   applications: Application[];
   deployments: Deployment[];
+  argocd?: {
+    connected: boolean;
+    url: string | null;
+    lastSyncedAt: string | null;
+  };
 }
 
 export function buildWorkspaceMetrics(
@@ -39,7 +44,10 @@ export function buildWorkspaceMetrics(
   let healthyApplications = 0;
   for (const application of snapshot.applications) {
     const latest = latestByApp.get(application.id);
-    if (normalizeHealth(latest?.healthStatus) === "Healthy") {
+    if (
+      normalizeHealth(application.healthStatus || latest?.healthStatus) ===
+      "Healthy"
+    ) {
       healthyApplications += 1;
     }
   }

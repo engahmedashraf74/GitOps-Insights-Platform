@@ -6,12 +6,14 @@ import { EnvironmentChart } from "@/components/charts/environment-chart";
 import { HealthChart } from "@/components/charts/health-chart";
 import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
 import { DoraCards } from "@/components/metrics/dora-cards";
+import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricSkeleton } from "@/components/ui/skeleton";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isArgoConnected } from "@/lib/argo";
 import {
   buildEnvironmentComparison,
   buildSuccessFailureSeries,
@@ -32,6 +34,7 @@ export default function AnalyticsPage() {
   const { loading, error, snapshot, reload } = useWorkspace(ready);
   const [range, setRange] = useState<TimeRange>("30d");
   const deployments = snapshot?.deployments ?? [];
+  const connected = isArgoConnected(snapshot);
   const metrics = useMemo(
     () =>
       snapshot
@@ -74,13 +77,16 @@ export default function AnalyticsPage() {
         }
       />
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
+      {!error && !loading && !connected ? (
+        <ConnectArgoEmptyState />
+      ) : null}
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, index) => (
             <MetricSkeleton key={index} />
           ))}
         </div>
-      ) : (
+      ) : connected ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Deployment frequency"
@@ -103,8 +109,10 @@ export default function AnalyticsPage() {
             hint="Latest health snapshot"
           />
         </div>
-      )}
+      ) : null}
 
+      {connected && !error && !loading ? (
+      <>
       <div className="mt-8">
         <DoraCards metrics={buildDoraMetrics(deployments)} />
       </div>
@@ -130,6 +138,8 @@ export default function AnalyticsPage() {
           <EnvironmentChart data={buildEnvironmentComparison(deployments)} />
         </ChartCard>
       </div>
+      </>
+      ) : null}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { ChartCard } from "@/components/charts/chart-card";
 import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
 import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
 import { DeploymentTable } from "@/components/deployments/deployment-table";
+import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -11,6 +12,7 @@ import { SearchInput } from "@/components/ui/search-input";
 import { MetricSkeleton } from "@/components/ui/skeleton";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isArgoConnected } from "@/lib/argo";
 import { buildSuccessFailureSeries } from "@/lib/analytics";
 import { percentLabel } from "@/lib/format";
 import { buildActivitySeries, isFailed, isSucceeded } from "@/lib/metrics";
@@ -57,13 +59,15 @@ export default function DeploymentsPage() {
     return matchesQuery && matchesStatus;
   });
 
+  const connected = isArgoConnected(snapshot);
+
   if (!ready) return null;
 
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Deployments"
-        description="Operational history across applications, including frequency and recent failures."
+        description="Revision history imported from Argo CD applications."
       />
       {error ? (
         <ErrorState message={error} onRetry={reload} />
@@ -73,6 +77,8 @@ export default function DeploymentsPage() {
             <MetricSkeleton key={index} />
           ))}
         </div>
+      ) : !connected ? (
+        <ConnectArgoEmptyState />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="History" value={deployments.length} hint="All recorded deployments" />
@@ -86,6 +92,8 @@ export default function DeploymentsPage() {
         </div>
       )}
 
+      {connected && !error && !loading ? (
+      <>
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <ChartCard
           title="Deployments over time"
@@ -149,6 +157,8 @@ export default function DeploymentsPage() {
       <p className="mt-3 text-xs text-zinc-500">
         Success rate in this view is {percentLabel(deployments.length ? (succeeded / deployments.length) * 100 : 0)}.
       </p>
+      </>
+      ) : null}
     </div>
   );
 }

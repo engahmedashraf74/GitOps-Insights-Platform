@@ -13,7 +13,9 @@ import {
   connectArgoCd,
   disconnectArgoCd,
   listIntegrations,
+  testArgoCd,
 } from "@/services/integrations";
+import { syncApplications } from "@/services/applications";
 import type { Integration } from "@/types";
 import {
   CheckCircle2,
@@ -22,7 +24,7 @@ import {
   MessageSquare,
   Plug,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const icons: Record<string, typeof Plug> = {
   argocd: Plug,
@@ -35,69 +37,65 @@ const icons: Record<string, typeof Plug> = {
 export default function IntegrationsPage() {
   const ready = useAuthGuard();
   const { push } = useToast();
-  const [items, setItems] = useState<Integration[]>(() =>
-    typeof window === "undefined" ? [] : listIntegrations(),
-  );
+  const [items, setItems] = useState<Integration[]>([]);
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
   const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [testMessage, setTestMessage] = useState("");
 
-  useEffect(() => {
-    setItems(listIntegrations());
+  const refresh = useCallback(async () => {
+    const data = await listIntegrations();
+    setItems(data);
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    void refresh().catch((err: unknown) => {
+      push(err instanceof Error ? err.message : "Could not load integrations.", "error");
+    });
+  }, [push, ready, refresh]);
 
   if (!ready) return null;
 
-  function refresh() {
-    setItems(listIntegrations());
-  }
-
-  function testConnection() {
+  async function testConnection() {
     setTesting(true);
     setTestMessage("");
     try {
-      const parsed = new URL(url.trim());
-      if (!parsed.protocol.startsWith("http")) {
-        throw new Error("URL must start with http or https.");
-      }
-      if (!token.trim()) {
-        throw new Error("Paste an Argo CD token to test. It is not stored.");
-      }
-      setTestMessage(
-        "URL and token look valid locally. A workspace integrations API is required to probe Argo CD from the server.",
-      );
+      const result = await testArgoCd(url.trim(), token.trim());
+      setTestMessage(result.message || "Connection succeeded.");
     } catch (err) {
-      setTestMessage(err instanceof Error ? err.message : "Invalid connection details.");
+      setTestMessage(err instanceof Error ? err.message : "Connection failed.");
     } finally {
       setTesting(false);
     }
   }
 
-  function connect() {
-    if (!url.trim()) {
-      push("Enter the Argo CD URL.", "error");
+  async function connect() {
+    if (!url.trim() || !token.trim()) {
+      push("Enter the Argo CD URL and token.", "error");
       return;
     }
+    setSaving(true);
     try {
-      new URL(url.trim());
-    } catch {
-      push("Enter a valid URL.", "error");
-      return;
+      await connectArgoCd(url.trim(), token.trim());
+      setToken("");
+      setOpen(false);
+      await refresh();
+      push("Argo CD connected. Applications were imported.", "success");
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Connect failed.", "error");
+    } finally {
+      setSaving(false);
     }
-    connectArgoCd(url.trim());
-    setToken("");
-    setOpen(false);
-    refresh();
-    push("Argo CD URL saved. Token was not stored in the browser.", "success");
   }
 
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Integrations"
-        description="Connect delivery systems. Credentials are never written into frontend source or local storage."
+        description="Argo CD is the source of truth. Tokens are stored encrypted on the server and never returned to the browser."
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => {
@@ -127,19 +125,39 @@ export default function IntegrationsPage() {
                 </Badge>
               </div>
               {item.provider === "argocd" ? (
-                <div className="mt-5 flex gap-2">
+                <div className="mt-5 flex flex-wrap gap-2">
                   {item.status === "connected" ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => {
-                        disconnectArgoCd();
-                        refresh();
-                        push("Argo CD disconnected.", "info");
-                      }}
-                    >
-                      Disconnect
-                    </Button>
+                    <>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await syncApplications();
+                            await refresh();
+                            push("Applications refreshed from Argo CD.", "success");
+                          } catch (err) {
+                            push(
+                              err instanceof Error ? err.message : "Sync failed.",
+                              "error",
+                            );
+                          }
+                        }}
+                      >
+                        Sync applications
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={async () => {
+                          await disconnectArgoCd();
+                          await refresh();
+                          push("Argo CD disconnected.", "info");
+                        }}
+                      >
+                        Disconnect
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       size="sm"
@@ -165,17 +183,19 @@ export default function IntegrationsPage() {
       <Modal
         open={open}
         title="Connect Argo CD"
-        description="The token is used only in this dialog. It is not persisted in the client."
+        description="The token is sent to the API, encrypted at rest, and never stored in the browser."
         onClose={() => setOpen(false)}
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button variant="secondary" loading={testing} onClick={testConnection}>
+            <Button variant="secondary" loading={testing} onClick={() => void testConnection()}>
               Test connection
             </Button>
-            <Button onClick={connect}>Connect</Button>
+            <Button loading={saving} onClick={() => void connect()}>
+              Connect
+            </Button>
           </>
         }
       >

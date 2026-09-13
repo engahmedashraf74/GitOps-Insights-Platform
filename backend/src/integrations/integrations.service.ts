@@ -53,19 +53,28 @@ export class IntegrationsService {
       where: { organizationId: organization.id },
     });
 
+    const envReady = Boolean(this.argocd.fallbackConnection());
+
     return CATALOG.map((item) => {
       const match = stored.find((row) => row.provider === item.provider);
       const comingSoon = item.provider !== IntegrationProvider.argocd;
+      const connected =
+        match?.status === IntegrationStatus.connected ||
+        (item.provider === IntegrationProvider.argocd && envReady);
       return {
         provider: item.provider,
         name: item.name,
         description: item.description,
         status: comingSoon
           ? IntegrationStatus.coming_soon
-          : (match?.status ?? IntegrationStatus.disconnected),
-        url: match?.url ?? undefined,
+          : connected
+            ? IntegrationStatus.connected
+            : IntegrationStatus.disconnected,
+        url: match?.url ?? (item.provider === IntegrationProvider.argocd
+          ? this.argocd.fallbackConnection()?.url
+          : undefined),
         lastSyncedAt: match?.lastSyncedAt ?? undefined,
-        connected: match?.status === IntegrationStatus.connected,
+        connected,
       };
     });
   }
@@ -141,7 +150,7 @@ export class IntegrationsService {
       },
     });
     if (!record?.credentialsEncrypted || !record.url) {
-      return undefined;
+      return this.argocd.fallbackConnection();
     }
     try {
       return {
@@ -149,6 +158,8 @@ export class IntegrationsService {
         token: decryptSecret(record.credentialsEncrypted),
       };
     } catch {
+      const fallback = this.argocd.fallbackConnection();
+      if (fallback) return fallback;
       throw new NotFoundException('Stored Argo CD credentials could not be decrypted.');
     }
   }

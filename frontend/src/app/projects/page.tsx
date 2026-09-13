@@ -1,31 +1,24 @@
 "use client";
 
-import { ProjectCard } from "@/components/projects/project-card";
-import { Button } from "@/components/ui/button";
+import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
-import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isArgoConnected } from "@/lib/argo";
 import { normalizeHealth } from "@/lib/metrics";
-import { createProject } from "@/services/projects";
 import { FolderKanban } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ProjectCard } from "@/components/projects/project-card";
 
 export default function ProjectsPage() {
   const ready = useAuthGuard();
   const { loading, error, snapshot, applications, reload } = useWorkspace(ready);
-  const { push } = useToast();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<"name" | "activity">("name");
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [saving, setSaving] = useState(false);
+  const connected = isArgoConnected(snapshot);
 
   const cards = useMemo(() => {
     const projects = snapshot?.projects ?? [];
@@ -36,7 +29,9 @@ export default function ProjectsPage() {
       );
       const healthyCount = apps.filter(
         (application) =>
-          normalizeHealth(application.latestDeployment?.healthStatus) === "Healthy",
+          normalizeHealth(
+            application.healthStatus || application.latestDeployment?.healthStatus,
+          ) === "Healthy",
       ).length;
       const lastActivity = deployments
         .map((item) => item.deployedAt)
@@ -69,49 +64,30 @@ export default function ProjectsPage() {
 
   if (!ready) return null;
 
-  async function onCreate() {
-    if (!name.trim()) {
-      push("Enter a project name.", "error");
-      return;
-    }
-    setSaving(true);
-    try {
-      await createProject(name.trim(), description);
-      setOpen(false);
-      setName("");
-      setDescription("");
-      push("Project created.", "success");
-      reload();
-    } catch (err) {
-      push(err instanceof Error ? err.message : "Create failed.", "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Projects"
-        description="Group applications and environments for each delivery surface."
-        actions={<Button onClick={() => setOpen(true)}>+ New Project</Button>}
+        description="Argo CD projects inferred from imported applications."
       />
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row">
-        <SearchInput
-          className="max-w-md flex-1"
-          placeholder="Search projects"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-        <select
-          className="h-10 rounded-lg border border-white/10 bg-zinc-950/60 px-3 text-sm"
-          value={sort}
-          onChange={(event) => setSort(event.target.value as "name" | "activity")}
-        >
-          <option value="name">Sort by name</option>
-          <option value="activity">Sort by activity</option>
-        </select>
-      </div>
+      {connected ? (
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row">
+          <SearchInput
+            className="max-w-md flex-1"
+            placeholder="Search projects"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+          <select
+            className="h-10 rounded-lg border border-white/10 bg-zinc-950/60 px-3 text-sm"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as "name" | "activity")}
+          >
+            <option value="name">Sort by name</option>
+            <option value="activity">Sort by activity</option>
+          </select>
+        </div>
+      ) : null}
       {error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : loading ? (
@@ -120,12 +96,13 @@ export default function ProjectsPage() {
             <Skeleton key={index} className="h-40" />
           ))}
         </div>
+      ) : !connected ? (
+        <ConnectArgoEmptyState />
       ) : cards.length === 0 ? (
         <EmptyState
           icon={<FolderKanban size={22} />}
-          title="No projects yet"
-          description="Create a project to start attaching GitOps applications."
-          action={<Button onClick={() => setOpen(true)}>+ New Project</Button>}
+          title="Connect Argo CD and sync applications"
+          description="Projects are imported from Argo CD. Nothing is created manually."
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -141,34 +118,6 @@ export default function ProjectsPage() {
           ))}
         </div>
       )}
-      <Modal
-        open={open}
-        title="New project"
-        onClose={() => setOpen(false)}
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button loading={saving} onClick={() => void onCreate()}>
-              Create
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-3">
-          <Input
-            placeholder="Project name"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <Input
-            placeholder="Description"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
-      </Modal>
     </div>
   );
 }

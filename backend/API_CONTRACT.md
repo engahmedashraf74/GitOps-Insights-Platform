@@ -97,7 +97,7 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 | POST | `/integrations/argocd/connect` | Encrypts token at rest |
 | DELETE | `/integrations/argocd` | |
 
-Env `ARGOCD_TOKEN` / `ARGOCD_URL` remain the fallback when no org integration exists.
+| GET | `/argocd/debug` | `{ envFallbackConfigured, storedIntegrationCount, connected, fetchedProjects, fetchedApplications, databaseProjects, databaseApplications, lastSyncAt }`. Never returns tokens. |
 
 ## Settings
 
