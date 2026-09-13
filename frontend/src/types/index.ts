@@ -41,6 +41,12 @@ export interface Application {
   path: string | null;
   projectId: number;
   createdAt?: string;
+  namespace?: string | null;
+  cluster?: string | null;
+  syncStatus?: string | null;
+  healthStatus?: string | null;
+  revision?: string | null;
+  lastObservedAt?: string | null;
 }
 
 export interface ApplicationRepository {
@@ -49,6 +55,8 @@ export interface ApplicationRepository {
   repoUrl: string | null;
   branch: string | null;
   path: string | null;
+  namespace?: string | null;
+  cluster?: string | null;
 }
 
 export interface Environment {
@@ -86,10 +94,22 @@ export interface DeploymentFrequency {
   deployments: number;
 }
 
+export interface ApplicationCurrentState {
+  health: string;
+  sync: string;
+  revision: string;
+  repoUrl: string;
+  namespace: string;
+  cluster: string;
+  lastDeployment: string | null;
+}
+
 export interface ApplicationOverview {
+  application?: Application;
   stats: DashboardStats;
   frequency: DeploymentFrequency;
   failureRate: FailureRate;
+  current?: ApplicationCurrentState;
   timeline: Deployment[];
 }
 
@@ -127,6 +147,8 @@ export interface Integration {
   description: string;
   status: IntegrationStatus;
   url?: string;
+  lastSyncedAt?: string;
+  connected?: boolean;
 }
 
 export interface UserPreferences {

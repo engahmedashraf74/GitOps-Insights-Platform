@@ -34,8 +34,16 @@ export class IntegrationsController {
       body.url,
       body.token,
     );
-    const sync = await this.argocdSync.syncForUser(user.userId);
-    return { ...connected, sync };
+    try {
+      const sync = await this.argocdSync.syncForUser(user.userId);
+      return { ...connected, sync };
+    } catch (error) {
+      return {
+        ...connected,
+        sync: null,
+        syncError: error instanceof Error ? error.message : String(error),
+      };
+    }
   }
 
   @Delete('argocd')

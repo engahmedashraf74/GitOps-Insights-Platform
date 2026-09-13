@@ -5,14 +5,18 @@ import { ChartCard } from "@/components/charts/chart-card";
 import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
 import { HealthChart } from "@/components/charts/health-chart";
 import { DeploymentTable } from "@/components/deployments/deployment-table";
+import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { DoraCards } from "@/components/metrics/dora-cards";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { MetricSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/ui/page-header";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
+import { isArgoConnected } from "@/lib/argo";
 import { buildDoraMetrics } from "@/lib/dora";
 import {
   buildActivitySeries,
@@ -21,15 +25,19 @@ import {
 } from "@/lib/metrics";
 import { insightPlaceholders } from "@/mock/demo-data";
 import { percentLabel } from "@/lib/format";
+import { syncApplications } from "@/services/applications";
 import type { TimeRange } from "@/types";
-import { Boxes } from "lucide-react";
+import { Boxes, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
 export default function DashboardPage() {
   const ready = useAuthGuard();
   const { loading, error, snapshot, applications, reload } = useWorkspace(ready);
+  const { push } = useToast();
   const [range, setRange] = useState<TimeRange>("7d");
+  const [syncing, setSyncing] = useState(false);
+  const connected = isArgoConnected(snapshot);
 
   const metrics = useMemo(
     () =>
@@ -66,11 +74,32 @@ export default function DashboardPage() {
 
   if (!ready) return null;
 
+  async function onSync() {
+    setSyncing(true);
+    try {
+      await syncApplications();
+      push("Applications refreshed from Argo CD.", "success");
+      reload();
+    } catch (err) {
+      push(err instanceof Error ? err.message : "Sync failed.", "error");
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Overview"
-        description="Monitor your GitOps delivery health across environments."
+        description="Observability for applications imported from Argo CD."
+        actions={
+          connected ? (
+            <Button variant="secondary" loading={syncing} onClick={() => void onSync()}>
+              <RefreshCw size={14} className="mr-2" />
+              Sync Applications
+            </Button>
+          ) : undefined
+        }
       />
 
       {error ? (
@@ -81,6 +110,8 @@ export default function DashboardPage() {
             <MetricSkeleton key={index} />
           ))}
         </div>
+      ) : !connected ? (
+        <ConnectArgoEmptyState />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard label="Applications" value={metrics.applications} hint="In this workspace" />
@@ -103,6 +134,8 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {connected && !error && !loading ? (
+      <>
       <div className="mt-8">
         <h2 className="mb-3 text-sm font-medium text-zinc-200">DORA metrics</h2>
         <DoraCards metrics={dora} />
@@ -182,7 +215,7 @@ export default function DashboardPage() {
             <EmptyState
               icon={<Boxes size={20} />}
               title="No applications"
-              description="Create a project, then add applications to start tracking GitOps health."
+              description="Sync Argo CD to import applications and start tracking health."
             />
           ) : (
             applications.slice(0, 4).map((application) => (
@@ -206,6 +239,8 @@ export default function DashboardPage() {
           ))}
         </div>
       </section>
+      </>
+      ) : null}
     </div>
   );
 }

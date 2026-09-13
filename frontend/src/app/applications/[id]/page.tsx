@@ -5,7 +5,6 @@ import { DeploymentActivityChart } from "@/components/charts/deployment-activity
 import { DeploymentTable, DeploymentTimeline } from "@/components/deployments/deployment-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
-import { Input } from "@/components/ui/input";
 import { MetricCard } from "@/components/ui/metric-card";
 import { MetricSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
@@ -14,9 +13,9 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatRelative, percentLabel, toNumber } from "@/lib/format";
 import { buildActivitySeries } from "@/lib/metrics";
-import { getApplicationRepository } from "@/services/applications";
+import { getApplicationRepository, syncApplications } from "@/services/applications";
 import { getOverview } from "@/services/dashboard";
-import { createEnvironment, getEnvironments } from "@/services/environments";
+import { getEnvironments } from "@/services/environments";
 import type {
   ApplicationOverview,
   ApplicationRepository,
@@ -37,7 +36,7 @@ export default function ApplicationDetailsPage({
   const { id } = use(params);
   const applicationId = Number(id);
   const ready = useAuthGuard();
-  const { applications } = useWorkspace(ready);
+  const { applications, reload } = useWorkspace(ready);
   const { push } = useToast();
   const application = applications.find((item) => item.id === applicationId);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -49,8 +48,25 @@ export default function ApplicationDetailsPage({
   const [repository, setRepository] = useState<ApplicationRepository | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [envName, setEnvName] = useState("");
-  const [savingEnv, setSavingEnv] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+
+  const current = overview?.current;
+  const health =
+    current?.health ||
+    application?.healthStatus ||
+    application?.latestDeployment?.healthStatus;
+  const sync =
+    current?.sync ||
+    application?.syncStatus ||
+    application?.latestDeployment?.syncStatus;
+  const revision =
+    current?.revision ||
+    application?.revision ||
+    application?.latestDeployment?.revision;
+  const repoUrl = current?.repoUrl || repository?.repoUrl || application?.repoUrl;
+  const namespace =
+    current?.namespace || repository?.namespace || application?.namespace;
+  const cluster = current?.cluster || repository?.cluster || application?.cluster;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +74,7 @@ export default function ApplicationDetailsPage({
     try {
       const [overviewData, environmentData, repositoryData] = await Promise.all([
         getOverview(applicationId),
-        getEnvironments(applicationId),
+        getEnvironments(applicationId).catch(() => []),
         getApplicationRepository(applicationId).catch(() => null),
       ]);
       setOverview(overviewData);
@@ -106,19 +122,17 @@ export default function ApplicationDetailsPage({
 
   if (!ready) return null;
 
-  async function addEnvironment() {
-    if (!envName.trim()) return;
-    setSavingEnv(true);
+  async function onSync() {
+    setSyncing(true);
     try {
-      await createEnvironment(envName.trim(), applicationId);
-      setEnvName("");
-      push("Environment created.", "success");
-      const data = await getEnvironments(applicationId);
-      setEnvironments(data);
+      await syncApplications();
+      reload();
+      await load();
+      push("Application refreshed from Argo CD.", "success");
     } catch (err) {
-      push(err instanceof Error ? err.message : "Could not create environment.", "error");
+      push(err instanceof Error ? err.message : "Sync failed.", "error");
     } finally {
-      setSavingEnv(false);
+      setSyncing(false);
     }
   }
 
@@ -131,19 +145,22 @@ export default function ApplicationDetailsPage({
             {application?.name || repository?.name || `Application ${applicationId}`}
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            {application?.description || "GitOps application details from live API data."}
+            Observed from Argo CD. This page does not manage the application.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <HealthBadge value={application?.latestDeployment?.healthStatus} />
-            <SyncBadge value={application?.latestDeployment?.syncStatus} />
+            <HealthBadge value={health} />
+            <SyncBadge value={sync} />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" loading={syncing} onClick={() => void onSync()}>
+            Sync Applications
+          </Button>
           <Button variant="secondary" onClick={() => void load()}>
             Refresh
           </Button>
           <Button variant="outline" onClick={() => setTab("Deployments")}>
-            View deployments
+            View history
           </Button>
         </div>
       </div>
@@ -174,21 +191,14 @@ export default function ApplicationDetailsPage({
         ) : overview ? (
           <>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                label="Health"
-                value={application?.latestDeployment?.healthStatus || "Unknown"}
-              />
-              <MetricCard
-                label="Sync status"
-                value={application?.latestDeployment?.syncStatus || "Unknown"}
-              />
-              <MetricCard
-                label="Current revision"
-                value={application?.latestDeployment?.revision?.slice(0, 10) || "—"}
-              />
+              <MetricCard label="Health" value={health || "Unknown"} />
+              <MetricCard label="Sync status" value={sync || "Unknown"} />
+              <MetricCard label="Current revision" value={revision?.slice(0, 12) || "—"} />
               <MetricCard
                 label="Last deployment"
-                value={formatRelative(application?.latestDeployment?.deployedAt)}
+                value={formatRelative(
+                  current?.lastDeployment || application?.latestDeployment?.deployedAt,
+                )}
               />
             </div>
             <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -204,8 +214,12 @@ export default function ApplicationDetailsPage({
             </div>
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-white/8 p-5 text-sm text-zinc-400">
-                <p>Repository: {repository?.repoUrl || application?.repoUrl || "—"}</p>
-                <p className="mt-2">Branch: {repository?.branch || application?.branch || "—"}</p>
+                <p>Repository: {repoUrl || "—"}</p>
+                <p className="mt-2">Namespace: {namespace || "—"}</p>
+                <p className="mt-2">Cluster: {cluster || "—"}</p>
+                <p className="mt-2">
+                  Target revision: {repository?.branch || application?.branch || "—"}
+                </p>
                 <p className="mt-2">Path: {repository?.path || application?.path || "—"}</p>
               </div>
               <ChartCard title="Recent activity">
@@ -216,7 +230,7 @@ export default function ApplicationDetailsPage({
         ) : (
           <EmptyState
             title="No overview yet"
-            description="Deployment stats appear after this application has recorded history."
+            description="Sync from Argo CD to populate health, sync, and history."
           />
         )
       ) : null}
@@ -229,7 +243,7 @@ export default function ApplicationDetailsPage({
               value={envFilter}
               onChange={(event) => setEnvFilter(event.target.value)}
             >
-              <option value="all">All environments</option>
+              <option value="all">All namespaces</option>
               {envNames.map((name) => (
                 <option key={name} value={name}>
                   {name}
@@ -262,8 +276,8 @@ export default function ApplicationDetailsPage({
           </div>
           {filtered.length === 0 ? (
             <EmptyState
-              title="No deployments in this filter"
-              description="Try another environment, status, or time range."
+              title="No history in this filter"
+              description="History is imported from Argo CD application revisions."
             />
           ) : (
             <>
@@ -281,22 +295,19 @@ export default function ApplicationDetailsPage({
 
       {tab === "Environments" ? (
         <div className="rounded-xl border border-white/8 p-5">
-          <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-            <Input
-              placeholder="Environment name"
-              value={envName}
-              onChange={(event) => setEnvName(event.target.value)}
-            />
-            <Button loading={savingEnv} onClick={() => void addEnvironment()}>
-              Add environment
-            </Button>
-          </div>
-          {environments.length === 0 ? (
+          {namespace ? (
+            <div className="mb-4 rounded-lg border border-white/8 px-4 py-3">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">Destination namespace</p>
+              <p className="mt-1 text-sm font-medium">{namespace}</p>
+              <p className="mt-1 text-xs text-zinc-500">{cluster || "Cluster from Argo CD spec"}</p>
+            </div>
+          ) : null}
+          {environments.length === 0 && !namespace ? (
             <EmptyState
-              title="No environments"
-              description="Add development, staging, or production to classify deployments."
+              title="No destination"
+              description="Namespace and cluster are imported from the Argo CD application spec."
             />
-          ) : (
+          ) : environments.length > 0 ? (
             <ul className="grid gap-3 sm:grid-cols-2">
               {environments.map((environment) => (
                 <li key={environment.id} className="rounded-lg border border-white/8 px-4 py-3">
@@ -305,7 +316,7 @@ export default function ApplicationDetailsPage({
                 </li>
               ))}
             </ul>
-          )}
+          ) : null}
         </div>
       ) : null}
 
@@ -317,12 +328,10 @@ export default function ApplicationDetailsPage({
             <dl className="grid gap-4 sm:grid-cols-2">
               <div>
                 <dt className="text-zinc-500">URL</dt>
-                <dd className="mt-1 font-mono text-xs">
-                  {repository?.repoUrl || application?.repoUrl || "—"}
-                </dd>
+                <dd className="mt-1 font-mono text-xs">{repoUrl || "—"}</dd>
               </div>
               <div>
-                <dt className="text-zinc-500">Branch</dt>
+                <dt className="text-zinc-500">Target revision</dt>
                 <dd className="mt-1">{repository?.branch || application?.branch || "—"}</dd>
               </div>
               <div>
@@ -330,6 +339,14 @@ export default function ApplicationDetailsPage({
                 <dd className="mt-1 font-mono text-xs">
                   {repository?.path || application?.path || "—"}
                 </dd>
+              </div>
+              <div>
+                <dt className="text-zinc-500">Namespace</dt>
+                <dd className="mt-1">{namespace || "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-zinc-500">Cluster</dt>
+                <dd className="mt-1 font-mono text-xs">{cluster || "—"}</dd>
               </div>
             </dl>
           )}
@@ -339,7 +356,7 @@ export default function ApplicationDetailsPage({
       {tab === "Events" ? (
         <EmptyState
           title="Events stream not available"
-          description="Application events will appear here when the backend exposes an events API. No placeholder events are shown."
+          description="Application events will appear here when Argo CD events are persisted."
         />
       ) : null}
     </div>

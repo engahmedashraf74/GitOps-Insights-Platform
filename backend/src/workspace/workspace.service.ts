@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { ArgocdSyncService } from '../argocd/argocd-sync.service';
+import { ArgocdService } from '../argocd/argocd.service';
 import type { JwtUser } from '../common/types/jwt-user';
 import type { TimeRange } from '../common/dto/time-range.dto';
 import {
@@ -14,9 +16,13 @@ import type { Application, Deployment, Project } from '@prisma/client';
 
 @Injectable()
 export class WorkspaceService {
+  private readonly logger = new Logger(WorkspaceService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly organizations: OrganizationsService,
+    private readonly argocdSync: ArgocdSyncService,
+    private readonly argocd: ArgocdService,
   ) {}
 
   async getWorkspace(user: JwtUser) {
@@ -30,6 +36,7 @@ export class WorkspaceService {
 
   async snapshot(user: JwtUser) {
     const organization = await this.organizations.ensureForUser(user.userId);
+    await this.maybeSync(user.userId, organization.id);
     const { projects, applications, deployments } =
       await this.loadGraph(user.userId);
     const integration = await this.prisma.integration.findUnique({
@@ -40,16 +47,51 @@ export class WorkspaceService {
         },
       },
     });
+    const envReady = Boolean(this.argocd.fallbackConnection());
+    const connected =
+      integration?.status === 'connected' ||
+      envReady ||
+      applications.length > 0;
     return {
       projects,
       applications,
       deployments,
       argocd: {
-        connected: integration?.status === 'connected',
-        url: integration?.url ?? null,
+        connected,
+        url: integration?.url ?? this.argocd.fallbackConnection()?.url ?? null,
         lastSyncedAt: integration?.lastSyncedAt ?? null,
       },
     };
+  }
+
+  private async maybeSync(userId: number, organizationId: number) {
+    const integration = await this.prisma.integration.findUnique({
+      where: {
+        organizationId_provider: {
+          organizationId,
+          provider: 'argocd',
+        },
+      },
+    });
+    const hasCreds = Boolean(
+      (integration?.url && integration.credentialsEncrypted) ||
+        this.argocd.fallbackConnection(),
+    );
+    if (!hasCreds) return;
+
+    const appCount = await this.prisma.application.count({
+      where: { project: { organizationId } },
+    });
+    if (appCount > 0) return;
+
+    try {
+      this.logger.log(
+        `[argocd-sync] lazy sync org=${organizationId} reason=zero-applications`,
+      );
+      await this.argocdSync.syncForUser(userId);
+    } catch (error) {
+      this.logger.warn(`Lazy Argo CD sync skipped: ${String(error)}`);
+    }
   }
 
   async metrics(user: JwtUser) {

@@ -42,14 +42,14 @@ export default function AppLayout({
     if (
       pathname !== "/onboarding" &&
       pathname !== "/settings" &&
+      pathname !== "/integrations" &&
       !isOnboardingComplete() &&
       snapshot &&
-      snapshot.projects.length === 0 &&
-      snapshot.applications.length === 0
+      snapshot.argocd?.connected !== true
     ) {
       router.replace("/onboarding");
     }
-    if (snapshot && (snapshot.projects.length > 0 || snapshot.applications.length > 0)) {
+    if (snapshot?.argocd?.connected) {
       if (!isOnboardingComplete()) completeOnboarding();
     }
   }, [pathname, router, snapshot]);

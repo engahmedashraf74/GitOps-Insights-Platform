@@ -2,11 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { completeOnboarding, getOnboardingState, saveOnboardingState } from "@/lib/onboarding";
 import { saveWorkspace, getWorkspace } from "@/lib/settings";
 import { connectArgoCd } from "@/services/integrations";
-import { createProject } from "@/services/projects";
-import { Plug, Rocket, Workflow } from "lucide-react";
+import { Plug, Workflow } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -15,25 +15,20 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [workspace, setWorkspace] = useState(getWorkspace().name);
   const [argoUrl, setArgoUrl] = useState("");
-  const [projectName, setProjectName] = useState("");
+  const [argoToken, setArgoToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   const steps = [
     {
       title: "Name your workspace",
-      body: "This is a local workspace label until organization APIs are available.",
+      body: "A local label for this GitOps Insights workspace.",
       icon: <Workflow size={20} />,
     },
     {
       title: "Connect Argo CD",
-      body: "Store the instance URL only. Tokens are never saved in the browser.",
+      body: "Applications are imported from Argo CD. The token is stored encrypted on the server.",
       icon: <Plug size={20} />,
-    },
-    {
-      title: "Create a project",
-      body: "Projects group applications, environments, and deployment history.",
-      icon: <Rocket size={20} />,
     },
   ];
 
@@ -58,35 +53,28 @@ export function OnboardingWizard() {
       return;
     }
     if (step === 1) {
-      if (argoUrl.trim()) {
-        try {
-          new URL(argoUrl.trim());
-        } catch {
-          setError("Enter a valid Argo CD URL or skip this step.");
-          return;
-        }
-        connectArgoCd(argoUrl.trim());
+      if (!argoUrl.trim() || !argoToken.trim()) {
+        setError("Enter the Argo CD URL and token, or skip setup.");
+        return;
       }
-      saveOnboardingState({
-        ...getOnboardingState(),
-        integrationReviewed: true,
-      });
-      setStep(2);
-      return;
-    }
-    if (step === 2) {
-      if (projectName.trim()) {
-        setLoading(true);
-        try {
-          await createProject(projectName.trim(), "Created during onboarding");
-        } catch (err) {
-          setError(err instanceof Error ? err.message : "Project could not be created.");
-          setLoading(false);
-          return;
-        }
+      try {
+        new URL(argoUrl.trim());
+      } catch {
+        setError("Enter a valid Argo CD URL.");
+        return;
+      }
+      setLoading(true);
+      try {
+        await connectArgoCd(argoUrl.trim(), argoToken.trim());
+        saveOnboardingState({
+          ...getOnboardingState(),
+          integrationReviewed: true,
+        });
+        await finish();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not connect to Argo CD.");
         setLoading(false);
       }
-      await finish();
     }
   }
 
@@ -96,10 +84,10 @@ export function OnboardingWizard() {
         Getting started
       </p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        Set up GitOps Insights
+        Observe Argo CD
       </h1>
       <p className="mt-2 text-sm text-zinc-400">
-        Three short steps. You can skip anything that is not ready yet.
+        Connect Argo CD to import applications. This platform does not create apps or repos.
       </p>
       <div className="mt-8 rounded-2xl border border-white/10 bg-[#111113]/80 p-6">
         <div className="mb-6 flex gap-2">
@@ -129,18 +117,20 @@ export function OnboardingWizard() {
             />
           ) : null}
           {step === 1 ? (
-            <Input
-              value={argoUrl}
-              onChange={(event) => setArgoUrl(event.target.value)}
-              placeholder="https://argocd.example.com"
-            />
-          ) : null}
-          {step === 2 ? (
-            <Input
-              value={projectName}
-              onChange={(event) => setProjectName(event.target.value)}
-              placeholder="payments-platform"
-            />
+            <>
+              <Input
+                value={argoUrl}
+                onChange={(event) => setArgoUrl(event.target.value)}
+                placeholder="https://argocd.example.com"
+              />
+              <PasswordInput
+                id="onboarding-argo-token"
+                label="Token"
+                value={argoToken}
+                onChange={(event) => setArgoToken(event.target.value)}
+                autoComplete="off"
+              />
+            </>
           ) : null}
         </div>
         <div className="mt-6 flex flex-wrap justify-between gap-2">
@@ -148,7 +138,7 @@ export function OnboardingWizard() {
             Skip setup
           </Button>
           <Button onClick={() => void next()} loading={loading}>
-            {step === 2 ? "Finish" : "Continue"}
+            {step === 1 ? "Connect and import" : "Continue"}
           </Button>
         </div>
       </div>

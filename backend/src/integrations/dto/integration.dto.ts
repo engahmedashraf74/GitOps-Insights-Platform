@@ -1,9 +1,10 @@
-import { IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ConnectArgoCdDto {
-  @ApiProperty({ example: 'https://argocd.example.com' })
-  @IsUrl({ require_tld: false })
+  @ApiProperty({ example: 'https://argocd-server.argocd.svc' })
+  @IsString()
+  @MinLength(8)
   url: string;
 
   @ApiProperty({ writeOnly: true })
@@ -14,7 +15,8 @@ export class ConnectArgoCdDto {
 
 export class TestArgoCdDto {
   @ApiProperty()
-  @IsUrl({ require_tld: false })
+  @IsString()
+  @MinLength(8)
   url: string;
 
   @ApiProperty({ writeOnly: true })

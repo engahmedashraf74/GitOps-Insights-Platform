@@ -1,3 +1,8 @@
+export interface MappedArgoProject {
+  name: string;
+  description: string | null;
+}
+
 export interface MappedArgoApplication {
   uid: string;
   name: string;
@@ -22,6 +27,29 @@ export interface MappedArgoHistory {
   syncStatus: string;
   healthStatus: string;
   environment: string;
+}
+
+export function extractArgoItems(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) return payload;
+  const record = asRecord(payload);
+  if (!record) return [];
+  if (Array.isArray(record.items)) return record.items;
+  if (Array.isArray(record.Items)) return record.Items;
+  if (record.metadata && (record.spec || record.status)) return [payload];
+  return [];
+}
+
+export function mapArgoProject(raw: unknown): MappedArgoProject | null {
+  const project = asRecord(raw);
+  if (!project) return null;
+  const metadata = asRecord(project.metadata);
+  const spec = asRecord(project.spec);
+  const name = String(metadata?.name || project.name || '').trim();
+  if (!name) return null;
+  return {
+    name,
+    description: stringOrNull(spec?.description) || 'Imported from Argo CD',
+  };
 }
 
 export function mapArgoApplication(raw: unknown): MappedArgoApplication | null {
