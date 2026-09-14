@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { login } from "@/services/auth";
+import { ApiError } from "@/services/api";
 import {
   getRememberedEmail,
   isAuthenticated,
@@ -58,7 +59,13 @@ export default function LoginPage() {
       setRememberedEmail(remember ? email.trim() : null);
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed.");
+      if (err instanceof ApiError && err.status === 403) {
+        setError(
+          `${err.message} Open the verification page to resend the email.`,
+        );
+      } else {
+        setError(err instanceof Error ? err.message : "Login failed.");
+      }
     } finally {
       setLoading(false);
     }
@@ -160,6 +167,17 @@ export default function LoginPage() {
             No account?{" "}
             <Link href="/register" className="text-teal-300">
               Create one
+            </Link>
+            {" · "}
+            <Link
+              href={
+                email.includes("@")
+                  ? `/verify-email?email=${encodeURIComponent(email.trim())}`
+                  : "/verify-email"
+              }
+              className="text-teal-300"
+            >
+              Verify email
             </Link>
           </p>
         </form>

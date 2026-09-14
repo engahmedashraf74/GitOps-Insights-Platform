@@ -11,6 +11,7 @@ const publicUser = {
   id: true,
   email: true,
   username: true,
+  emailVerified: true,
   createdAt: true,
 } as const;
 
@@ -49,6 +50,7 @@ export class UsersService {
         email,
         password: hashedPassword,
         username,
+        emailVerified: false,
       },
     });
   }

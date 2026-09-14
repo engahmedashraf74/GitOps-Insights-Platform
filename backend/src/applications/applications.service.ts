@@ -10,6 +10,7 @@ import { ArgocdSyncService } from '../argocd/argocd-sync.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
 import { mapArgoApplication } from '../argocd/argo-application';
+import { maxApplications } from '../billing/plan';
 
 @Injectable()
 export class ApplicationsService {
@@ -32,12 +33,15 @@ export class ApplicationsService {
   }
 
   async findAllForUser(userId: number) {
+    const organization = await this.organizations.ensureForUser(userId);
     const projectIds = await this.organizations.getAccessibleProjectIds(userId);
-    return this.prisma.application.findMany({
+    const applications = await this.prisma.application.findMany({
       where: { projectId: { in: projectIds } },
       include: { project: true },
       orderBy: { name: 'asc' },
     });
+    const cap = maxApplications(organization);
+    return cap >= 0 ? applications.slice(0, cap) : applications;
   }
 
   findAllByProject(projectId: number) {

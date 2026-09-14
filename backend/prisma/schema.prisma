@@ -28,34 +28,56 @@ enum IntegrationStatus {
   coming_soon
 }
 
-model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  username  String?  @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum SubscriptionPlan {
+  FREE
+  PRO
+}
 
-  projects      Project[]
-  memberships   OrganizationMember[]
-  preference    UserPreference?
-  createdOrgs   Organization[]       @relation("OrgCreator")
-  notifications Notification[]       @relation("NotificationActor")
+enum SubscriptionStatus {
+  inactive
+  active
+  trialing
+  past_due
+  canceled
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  username        String?   @unique
+  password        String
+  emailVerified   Boolean   @default(false)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  projects             Project[]
+  memberships          OrganizationMember[]
+  preference           UserPreference?
+  createdOrgs          Organization[]            @relation("OrgCreator")
+  notifications        Notification[]            @relation("NotificationActor")
+  emailVerifications   EmailVerificationToken[]
 }
 
 model Organization {
-  id          Int      @id @default(autoincrement())
-  name        String
-  slug        String   @unique
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdById Int?
-  createdBy   User?    @relation("OrgCreator", fields: [createdById], references: [id])
+  id                     Int                @id @default(autoincrement())
+  name                   String
+  slug                   String             @unique
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  createdById            Int?
+  createdBy              User?              @relation("OrgCreator", fields: [createdById], references: [id])
+  subscriptionPlan       SubscriptionPlan   @default(FREE)
+  subscriptionStatus     SubscriptionStatus @default(active)
+  subscriptionExpiresAt  DateTime?
+  stripeCustomerId       String?
 
-  members       OrganizationMember[]
-  projects      Project[]
-  integrations  Integration[]
-  notifications Notification[]
+  members        OrganizationMember[]
+  projects       Project[]
+  integrations   Integration[]
+  notifications  Notification[]
+  billingCustomer BillingCustomer?
+  checkouts      BillingCheckoutSession[]
 }
 
 model OrganizationMember {
@@ -216,4 +238,42 @@ model ApplicationEvent {
   application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   @@index([applicationId, createdAt])
+}
+
+model EmailVerificationToken {
+  id        Int       @id @default(autoincrement())
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model BillingCustomer {
+  id               Int      @id @default(autoincrement())
+  organizationId   Int      @unique
+  stripeCustomerId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model BillingCheckoutSession {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  userId         Int
+  provider       String   @default("stub")
+  providerRef    String
+  plan           SubscriptionPlan
+  status         String   @default("created")
+  url            String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
 }

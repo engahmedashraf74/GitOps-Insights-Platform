@@ -15,6 +15,7 @@ import { ArgocdModule } from './argocd/argocd.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { IntegrationsModule } from './integrations/integrations.module';
+import { BillingModule } from './billing/billing.module';
 
 export const { ObserveModule, ObserveInstrument } = createObserveModule();
 
@@ -38,6 +39,7 @@ export const { ObserveModule, ObserveInstrument } = createObserveModule();
     ArgocdModule,
     WorkspaceModule,
     IntegrationsModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

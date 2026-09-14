@@ -5,6 +5,7 @@ import { ChartCard } from "@/components/charts/chart-card";
 import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
 import { HealthChart } from "@/components/charts/health-chart";
 import { DeploymentTable } from "@/components/deployments/deployment-table";
+import { PlanUsageBar } from "@/components/billing/plan-usage-bar";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { DoraCards } from "@/components/metrics/dora-cards";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -101,6 +102,16 @@ export default function DashboardPage() {
           ) : undefined
         }
       />
+
+      {snapshot?.subscription ? (
+        <div className="mb-6">
+          <PlanUsageBar
+            applications={snapshot.usage?.applications ?? applications.length}
+            applicationLimit={snapshot.subscription.maxApplications}
+            isPro={snapshot.subscription.isPro}
+          />
+        </div>
+      ) : null}
 
       {error ? (
         <ErrorState message={error} onRetry={reload} />

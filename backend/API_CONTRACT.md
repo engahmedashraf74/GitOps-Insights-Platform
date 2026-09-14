@@ -10,10 +10,28 @@ Docs: `GET /api/docs`.
 |---|---|---|
 | GET | `/health` | Liveness |
 | GET | `/about` | Service metadata |
-| POST | `/auth/register` | `{ email, password, username? }` → `{ access_token }` |
-| POST | `/auth/login` | `{ email }` may be email **or** username → `{ access_token }` |
+| POST | `/auth/register` | `{ email, password, username? }` → `{ ok, requiresVerification, email }` (no JWT until verified) |
+| POST | `/auth/login` | `{ email }` may be email **or** username → `{ access_token }`. Unverified accounts return **403**. |
+| POST | `/auth/verify-email` | `{ token }` → `{ access_token }` |
+| POST | `/auth/resend-verification` | `{ email }` → `{ ok: true }` (no user enumeration) |
+| GET | `/auth/me` | JWT. Profile including `emailVerified` |
 
-JWT payload is unchanged: `{ userId, email }`.
+JWT payload is unchanged: `{ userId, email }`. Existing users were backfilled as verified.
+
+## Billing (Public Beta v1)
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/billing/subscription` | Plan entitlements + usage |
+| GET | `/billing/usage` | Application and Argo CD integration counts |
+| POST | `/billing/checkout` | Stripe-ready stub checkout session (no Stripe keys) |
+| POST | `/billing/stub/activate-pro` | Dev-only; blocked when `NODE_ENV=production` |
+| GET | `/billing/ai/status` | Pro-only (`requireProPlan()`). Placeholder AI entitlement |
+
+Free: 3 applications, 1 Argo CD integration, 7 days of deployment history.  
+Pro: unlimited applications/projects, full history, full analytics, AI flag on.
+
+`GET /workspace/snapshot` includes `subscription` and `usage`.
 
 ## Workspace (eliminates frontend N+1)
 
@@ -114,3 +132,6 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 
 - `INTEGRATION_ENCRYPTION_KEY` (optional, 32+ chars) encrypts Argo tokens.
 - `JWT_SECRET` defaults to `my-secret-key` so existing tokens keep working.
+- `APP_URL` is used in verification and checkout redirect links (default `http://localhost:3001`).
+- `SMTP_HOST` optional. If unset, verification links are logged.
+- `ARGOCD_URL` / `ARGOCD_TOKEN` are a **development fallback only**. Production uses stored per-organization integrations unless `ARGOCD_ENV_FALLBACK=true`.

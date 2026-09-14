@@ -6,6 +6,7 @@ import { decryptSecret } from '../common/crypto/secret-box';
 import { IntegrationProvider, IntegrationStatus } from '@prisma/client';
 import type { ArgoConnection } from './argocd.service';
 import type { MappedArgoApplication, MappedArgoProject } from './argo-application';
+import { maxApplications } from '../billing/plan';
 
 export interface ArgoSyncResult {
   connected: boolean;
@@ -240,6 +241,17 @@ export class ArgocdSyncService {
       `[argocd-sync] fetched org=${organizationId} projects=${projects.length} applications=${discovered.length}`,
     );
 
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+    const cap = maxApplications(organization);
+    const toImport = cap < 0 ? discovered : discovered.slice(0, cap);
+    if (toImport.length < discovered.length) {
+      this.logger.log(
+        `[argocd-sync] free plan cap org=${organizationId} importing=${toImport.length} skipped=${discovered.length - toImport.length}`,
+      );
+    }
+
     let projectsInserted = 0;
     let projectsUpdated = 0;
     for (const project of projects) {
@@ -252,7 +264,7 @@ export class ArgocdSyncService {
     let applicationsInserted = 0;
     let applicationsUpdated = 0;
 
-    for (const item of discovered) {
+    for (const item of toImport) {
       try {
         const result = await this.upsertApplication(organizationId, userId, item);
         seen.add(result.applicationId);

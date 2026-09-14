@@ -14,6 +14,8 @@ const pages: SearchResult[] = [
   { id: "p-deploys", title: "Deployments", subtitle: "Deployment history", href: "/deployments", group: "Pages" },
   { id: "p-analytics", title: "Analytics", subtitle: "Delivery trends", href: "/analytics", group: "Pages" },
   { id: "p-integrations", title: "Integrations", subtitle: "Argo CD and sources", href: "/integrations", group: "Pages" },
+  { id: "p-subscription", title: "Subscription", subtitle: "Free and Pro plans", href: "/subscription", group: "Pages" },
+  { id: "p-upgrade", title: "Upgrade to Pro", subtitle: "Unlock full history and analytics", href: "/upgrade", group: "Pages" },
   { id: "p-settings", title: "Settings", subtitle: "Profile and preferences", href: "/settings", group: "Pages" },
 ];
 

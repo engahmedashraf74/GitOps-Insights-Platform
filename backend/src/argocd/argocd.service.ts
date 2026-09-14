@@ -21,12 +21,22 @@ export class ArgocdService {
   private readonly logger = new Logger(ArgocdService.name);
 
   fallbackConnection(): ArgoConnection | undefined {
+    if (!this.devFallbackEnabled()) {
+      return undefined;
+    }
     const url = (process.env.ARGOCD_URL || '').replace(/\/$/, '');
     const token = (process.env.ARGOCD_TOKEN || '').trim();
     if (!url || PLACEHOLDER_TOKENS.has(token) || token.length < 8) {
       return undefined;
     }
+    this.logger.log('[argocd] using development env fallback credentials');
     return { url, token };
+  }
+
+  private devFallbackEnabled(): boolean {
+    if (process.env.ARGOCD_ENV_FALLBACK === 'true') return true;
+    if (process.env.ARGOCD_ENV_FALLBACK === 'false') return false;
+    return process.env.NODE_ENV !== 'production';
   }
 
   resolveConnection(connection?: ArgoConnection): ArgoConnection | undefined {

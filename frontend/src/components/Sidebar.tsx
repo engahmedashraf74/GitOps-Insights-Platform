@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   Plug,
   Settings,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -25,6 +26,7 @@ const navigation = [
   { label: "Deployments", href: "/deployments", icon: Activity },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Integrations", href: "/integrations", icon: Plug },
+  { label: "Subscription", href: "/subscription", icon: CreditCard },
 ];
 
 const bottomNavigation = [

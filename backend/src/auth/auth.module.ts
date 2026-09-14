@@ -6,12 +6,16 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy/jwt.strategy';
 import { PassportModule } from '@nestjs/passport';
 import { OrganizationsModule } from '../organizations/organizations.module';
+import { PrismaModule } from '../prisma/prisma.module';
+import { MailModule } from '../mail/mail.module';
 import { JWT_SECRET } from './jwt.constants';
 
 @Module({
   imports: [
     UsersModule,
     OrganizationsModule,
+    PrismaModule,
+    MailModule,
     PassportModule,
     JwtModule.register({
       secret: JWT_SECRET,

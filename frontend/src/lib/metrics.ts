@@ -18,6 +18,20 @@ export interface WorkspaceSnapshot {
     url: string | null;
     lastSyncedAt: string | null;
   };
+  subscription?: {
+    plan: "FREE" | "PRO";
+    status: string;
+    isPro: boolean;
+    maxApplications: number;
+    historyDays: number | null;
+    fullAnalytics: boolean;
+    fullHistory: boolean;
+    aiFeatures: boolean;
+  };
+  usage?: {
+    applications: number;
+    applicationLimit: number;
+  };
 }
 
 export function buildWorkspaceMetrics(

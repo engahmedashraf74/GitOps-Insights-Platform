@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { historySince } from '../billing/plan';
 import {
   CreateDeploymentDto,
   ListDeploymentsQueryDto,
@@ -38,6 +39,7 @@ export class DeploymentsService {
   }
 
   async findAllForUser(userId: number, query: ListDeploymentsQueryDto) {
+    const organization = await this.organizations.ensureForUser(userId);
     const projectIds = await this.organizations.getAccessibleProjectIds(userId);
     const applications = await this.prisma.application.findMany({
       where: { projectId: { in: projectIds } },
@@ -63,9 +65,15 @@ export class DeploymentsService {
     if (query.environment) {
       where.environment = { equals: query.environment, mode: 'insensitive' };
     }
-    if (query.from || query.to) {
+    const planSince = historySince(organization);
+    const fromDate = query.from ? new Date(query.from) : undefined;
+    const gte =
+      planSince && fromDate
+        ? new Date(Math.max(planSince.getTime(), fromDate.getTime()))
+        : (planSince ?? fromDate);
+    if (gte || query.to) {
       where.deployedAt = {
-        gte: query.from ? new Date(query.from) : undefined,
+        gte,
         lte: query.to ? new Date(query.to) : undefined,
       };
     }

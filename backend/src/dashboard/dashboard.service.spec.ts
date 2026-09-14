@@ -3,6 +3,7 @@ import { DashboardService } from './dashboard.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ArgocdService } from '../argocd/argocd.service';
 import { IntegrationsService } from '../integrations/integrations.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 describe('DashboardService', () => {
   let service: DashboardService;
@@ -12,6 +13,7 @@ describe('DashboardService', () => {
       providers: [
         DashboardService,
         { provide: PrismaService, useValue: {} },
+        { provide: OrganizationsService, useValue: {} },
         { provide: ArgocdService, useValue: {} },
         { provide: IntegrationsService, useValue: {} },
       ],
