@@ -1,91 +1,148 @@
 apiVersion: apps/v1
 kind: Deployment
+
 metadata:
   name: gitops-backend
   labels:
     app: gitops-backend
+
 spec:
   replicas: 1
+
   selector:
     matchLabels:
       app: gitops-backend
+
   template:
     metadata:
       labels:
         app: gitops-backend
+
     spec:
       dnsPolicy: ClusterFirst
+
       dnsConfig:
         options:
           - name: ndots
             value: "1"
+
       initContainers:
         - name: wait-for-postgres
           image: postgres:16-alpine
           imagePullPolicy: IfNotPresent
+
           env:
             - name: PGUSER
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
                   key: POSTGRES_USER
+
             - name: PGPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
                   key: POSTGRES_PASSWORD
+
             - name: PGDATABASE
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
                   key: POSTGRES_DB
+
           command:
             - sh
             - -c
             - |
               echo "DNS lookup for postgres:"
               getent hosts postgres || nslookup postgres || true
+
               i=0
               until pg_isready -h postgres -p 5432 -U "$PGUSER" -d "$PGDATABASE"; do
                 i=$((i + 1))
+
                 if [ "$i" -gt 30 ]; then
                   echo "Postgres is not reachable at postgres:5432"
                   getent hosts postgres || true
                   exit 1
                 fi
+
                 echo "Waiting for Postgres ($i/30)..."
                 sleep 2
               done
+
               echo "Postgres is accepting connections"
+
       containers:
         - name: backend
           image: ahmedashraf74/gitops-backend:v14
           imagePullPolicy: IfNotPresent
+
           ports:
             - containerPort: 3000
               protocol: TCP
+
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: postgres-credentials
                   key: DATABASE_URL
+
             - name: ARGOCD_URL
               value: "https://argocd-server.argocd.svc.cluster.local"
+
             - name: ARGOCD_TOKEN
-              value: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJhcmdvY2QiLCJzdWIiOiJhZG1pbjphcGlLZXkiLCJuYmYiOjE3ODkzMTg0MTgsImlhdCI6MTc4OTMxODQxOCwianRpIjoiNTUxNDI1NzQtZTFkZC00MzViLTlkNzgtYWM4MjYwOTllYzExIn0.qJ3eI-arJ1S4o-d-V_pcYGMEbRsw1l1eDKw0rpGMPBM"
-          command: ["sh", "-c"]
+              value: "PUT_YOUR_NEW_ARGOCD_TOKEN_HERE"
+
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: smtp-secret
+                  key: SMTP_HOST
+
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: smtp-secret
+                  key: SMTP_PORT
+
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: smtp-secret
+                  key: SMTP_USER
+
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: smtp-secret
+                  key: SMTP_PASS
+
+            - name: MAIL_FROM
+              value: "GitOps Insights <ahmedashraf016n@gmail.com>"
+
+            - name: APP_URL
+              value: "http://192.168.49.2:30883"
+
+          command:
+            - sh
+            - -c
+
           args:
             - npx prisma migrate deploy && node dist/main.js
+
           readinessProbe:
             tcpSocket:
               port: 3000
             initialDelaySeconds: 8
             periodSeconds: 5
+
           resources:
             requests:
               cpu: 100m
               memory: 256Mi
+
             limits:
               cpu: "1"
               memory: 1Gi
