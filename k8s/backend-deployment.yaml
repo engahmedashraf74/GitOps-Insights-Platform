@@ -75,7 +75,7 @@ spec:
 
       containers:
         - name: backend
-          image: ahmedashraf74/gitops-backend:v14
+          image: ahmedashraf74/gitops-backend:v15
           imagePullPolicy: IfNotPresent
 
           ports:
