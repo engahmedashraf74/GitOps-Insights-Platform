@@ -59,9 +59,14 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const data = await registerAccount(email.trim(), password);
-      if (!data?.access_token) {
-        setError("Account created but no access_token was returned.");
+      const data = await registerAccount(
+        email.trim(),
+        password,
+        username.trim(),
+      );
+      if (data.requiresVerification || !data.access_token) {
+        setSuccess("Account created. Check your email to verify before signing in.");
+        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
         return;
       }
       setToken(data.access_token);

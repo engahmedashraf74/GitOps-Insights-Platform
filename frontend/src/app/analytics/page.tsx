@@ -11,6 +11,7 @@ import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricSkeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
@@ -59,7 +60,11 @@ export default function AnalyticsPage() {
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Analytics"
-        description="Delivery frequency, reliability, and environment comparison from recorded GitOps history."
+        description={
+          snapshot?.subscription?.fullAnalytics
+            ? "Delivery frequency, reliability, and environment comparison from GitOps history."
+            : "Free plan includes 7 days of history. Upgrade to Pro for full analytics."
+        }
         actions={
           <div className="flex gap-1">
             {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
@@ -76,6 +81,15 @@ export default function AnalyticsPage() {
           </div>
         }
       />
+      {snapshot?.subscription && !snapshot.subscription.fullAnalytics ? (
+        <p className="mb-4 rounded-lg border border-teal-400/20 bg-teal-400/5 px-3 py-2 text-sm text-zinc-300">
+          Charts use the last 7 days on Free.{" "}
+          <Link href="/upgrade" className="text-teal-300">
+            Upgrade to Pro
+          </Link>{" "}
+          for full analytics and history.
+        </p>
+      ) : null}
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
       {!error && !loading && !connected ? (
         <ConnectArgoEmptyState />

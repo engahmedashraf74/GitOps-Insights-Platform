@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ArgocdService } from '../argocd/argocd.service';
 import { IntegrationsService } from '../integrations/integrations.service';
+import { OrganizationsService } from '../organizations/organizations.service';
+import { historySince } from '../billing/plan';
 import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
 
 @Injectable()
@@ -10,11 +12,19 @@ export class DashboardService {
     private readonly prisma: PrismaService,
     private readonly argocdService: ArgocdService,
     private readonly integrations: IntegrationsService,
+    private readonly organizations: OrganizationsService,
   ) {}
 
-  async getStats(applicationId: number) {
+  private async historyFilter(userId: number | undefined) {
+    if (!userId) return {};
+    const organization = await this.organizations.ensureForUser(userId);
+    const since = historySince(organization);
+    return since ? { deployedAt: { gte: since } } : {};
+  }
+
+  async getStats(applicationId: number, userId?: number) {
     const deployments = await this.prisma.deployment.findMany({
-      where: { applicationId },
+      where: { applicationId, ...(await this.historyFilter(userId)) },
     });
     const totalDeployments = deployments.length;
     const healthyDeployments = deployments.filter(isSucceeded).length;
@@ -32,9 +42,9 @@ export class DashboardService {
     };
   }
 
-  getTimeline(applicationId: number) {
+  async getTimeline(applicationId: number, userId?: number) {
     return this.prisma.deployment.findMany({
-      where: { applicationId },
+      where: { applicationId, ...(await this.historyFilter(userId)) },
       orderBy: { deployedAt: 'desc' },
       select: {
         id: true,
@@ -49,9 +59,9 @@ export class DashboardService {
     });
   }
 
-  async getFailureRate(applicationId: number) {
+  async getFailureRate(applicationId: number, userId?: number) {
     const deployments = await this.prisma.deployment.findMany({
-      where: { applicationId },
+      where: { applicationId, ...(await this.historyFilter(userId)) },
     });
     const total = deployments.length;
     const failed = deployments.filter(isFailed).length;
@@ -63,9 +73,9 @@ export class DashboardService {
     };
   }
 
-  async getDeploymentFrequency(applicationId: number) {
+  async getDeploymentFrequency(applicationId: number, userId?: number) {
     const deployments = await this.prisma.deployment.count({
-      where: { applicationId },
+      where: { applicationId, ...(await this.historyFilter(userId)) },
     });
     return { deployments };
   }
@@ -99,10 +109,10 @@ export class DashboardService {
       where: { id: applicationId },
     });
     const [stats, frequency, failureRate, timeline] = await Promise.all([
-      this.getStats(applicationId),
-      this.getDeploymentFrequency(applicationId),
-      this.getFailureRate(applicationId),
-      this.getTimeline(applicationId),
+      this.getStats(applicationId, userId),
+      this.getDeploymentFrequency(applicationId, userId),
+      this.getFailureRate(applicationId, userId),
+      this.getTimeline(applicationId, userId),
     ]);
 
     let current = {

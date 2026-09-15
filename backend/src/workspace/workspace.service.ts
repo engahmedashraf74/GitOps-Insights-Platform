@@ -13,6 +13,7 @@ import {
   isSucceeded,
 } from './workspace-metrics';
 import type { Application, Deployment, Project } from '@prisma/client';
+import { entitlementsFor, historySince, maxApplications } from '../billing/plan';
 
 @Injectable()
 export class WorkspaceService {
@@ -60,6 +61,11 @@ export class WorkspaceService {
         connected,
         url: integration?.url ?? this.argocd.fallbackConnection()?.url ?? null,
         lastSyncedAt: integration?.lastSyncedAt ?? null,
+      },
+      subscription: entitlementsFor(organization),
+      usage: {
+        applications: applications.length,
+        applicationLimit: entitlementsFor(organization).maxApplications,
       },
     };
   }
@@ -237,16 +243,26 @@ export class WorkspaceService {
     applications: Application[];
     deployments: Deployment[];
   }> {
+    const organization = await this.organizations.ensureForUser(userId);
     const projectIds = await this.organizations.getAccessibleProjectIds(userId);
     const projects = await this.prisma.project.findMany({
       where: { id: { in: projectIds } },
       orderBy: { createdAt: 'desc' },
     });
-    const applications = await this.prisma.application.findMany({
+    let applications = await this.prisma.application.findMany({
       where: { projectId: { in: projectIds } },
+      orderBy: { name: 'asc' },
     });
+    const cap = maxApplications(organization);
+    if (cap >= 0) {
+      applications = applications.slice(0, cap);
+    }
+    const since = historySince(organization);
     const deployments = await this.prisma.deployment.findMany({
-      where: { applicationId: { in: applications.map((item) => item.id) } },
+      where: {
+        applicationId: { in: applications.map((item) => item.id) },
+        ...(since ? { deployedAt: { gte: since } } : {}),
+      },
       orderBy: { deployedAt: 'desc' },
     });
     return { projects, applications, deployments };

@@ -12,25 +12,38 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('stats/:applicationId')
-  getStats(@Param('applicationId', ParseIntPipe) applicationId: number) {
-    return this.dashboardService.getStats(applicationId);
+  getStats(
+    @CurrentUser() user: JwtUser,
+    @Param('applicationId', ParseIntPipe) applicationId: number,
+  ) {
+    return this.dashboardService.getStats(applicationId, user.userId);
   }
 
   @Get('timeline/:applicationId')
-  getTimeline(@Param('applicationId', ParseIntPipe) applicationId: number) {
-    return this.dashboardService.getTimeline(applicationId);
+  getTimeline(
+    @CurrentUser() user: JwtUser,
+    @Param('applicationId', ParseIntPipe) applicationId: number,
+  ) {
+    return this.dashboardService.getTimeline(applicationId, user.userId);
   }
 
   @Get('failure-rate/:applicationId')
-  getFailureRate(@Param('applicationId', ParseIntPipe) applicationId: number) {
-    return this.dashboardService.getFailureRate(applicationId);
+  getFailureRate(
+    @CurrentUser() user: JwtUser,
+    @Param('applicationId', ParseIntPipe) applicationId: number,
+  ) {
+    return this.dashboardService.getFailureRate(applicationId, user.userId);
   }
 
   @Get('frequency/:applicationId')
   getDeploymentFrequency(
+    @CurrentUser() user: JwtUser,
     @Param('applicationId', ParseIntPipe) applicationId: number,
   ) {
-    return this.dashboardService.getDeploymentFrequency(applicationId);
+    return this.dashboardService.getDeploymentFrequency(
+      applicationId,
+      user.userId,
+    );
   }
 
   @Get('overview/:applicationId')

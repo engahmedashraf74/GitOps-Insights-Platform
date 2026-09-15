@@ -14,9 +14,24 @@ export async function login(
 export async function register(
   email: string,
   password: string,
-): Promise<AuthResponse> {
-  return apiFetch<AuthResponse>("/auth/register", {
+  username?: string,
+): Promise<AuthResponse & { requiresVerification?: boolean; email?: string; ok?: boolean }> {
+  return apiFetch("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, username }),
+  });
+}
+
+export async function verifyEmail(token: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+export async function resendVerification(email: string): Promise<{ ok: boolean }> {
+  return apiFetch("/auth/resend-verification", {
+    method: "POST",
+    body: JSON.stringify({ email }),
   });
 }

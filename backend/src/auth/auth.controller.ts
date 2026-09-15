@@ -1,7 +1,12 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  ResendVerificationDto,
+  VerifyEmailDto,
+} from './dto/auth.dto';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtUser } from '../common/types/jwt-user';
@@ -21,9 +26,19 @@ export class AuthController {
     return this.authService.login(body.email, body.password);
   }
 
+  @Post('verify-email')
+  verifyEmail(@Body() body: VerifyEmailDto) {
+    return this.authService.verifyEmail(body.token);
+  }
+
+  @Post('resend-verification')
+  resendVerification(@Body() body: ResendVerificationDto) {
+    return this.authService.resendVerification(body.email);
+  }
+
   @Get('me')
   @JwtAuth()
   me(@CurrentUser() user: JwtUser) {
-    return user;
+    return this.authService.me(user.userId);
   }
 }

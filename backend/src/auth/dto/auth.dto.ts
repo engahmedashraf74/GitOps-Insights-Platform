@@ -41,3 +41,16 @@ export class LoginDto {
   @MinLength(1)
   password: string;
 }
+
+export class VerifyEmailDto {
+  @ApiProperty()
+  @IsString()
+  @MinLength(16)
+  token: string;
+}
+
+export class ResendVerificationDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+}

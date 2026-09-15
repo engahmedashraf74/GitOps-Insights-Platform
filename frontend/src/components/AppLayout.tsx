@@ -11,7 +11,12 @@ import { completeOnboarding, isOnboardingComplete } from "@/lib/onboarding";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { buildNotifications } from "@/lib/notifications";
 
-const publicPaths = new Set(["/", "/login", "/register"]);
+const publicPaths = new Set([
+  "/",
+  "/login",
+  "/register",
+  "/verify-email",
+]);
 
 export default function AppLayout({
   children,
