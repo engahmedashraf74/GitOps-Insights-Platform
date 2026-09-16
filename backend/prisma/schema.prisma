@@ -42,21 +42,28 @@ enum SubscriptionStatus {
 }
 
 model User {
-  id              Int       @id @default(autoincrement())
-  email           String    @unique
-  username        String?   @unique
-  password        String
-  emailVerified   Boolean   @default(false)
-  emailVerifiedAt DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id                     Int       @id @default(autoincrement())
+  email                  String    @unique
+  username               String?   @unique
+  password               String
+  emailVerified          Boolean   @default(false)
+  emailVerifiedAt        DateTime?
+  stripeCustomerId       String?
+  stripeSubscriptionId   String?
+  subscriptionStatus     String?   @default("free")
+  subscriptionPlan       String?   @default("free")
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  projects             Project[]
-  memberships          OrganizationMember[]
-  preference           UserPreference?
-  createdOrgs          Organization[]            @relation("OrgCreator")
-  notifications        Notification[]            @relation("NotificationActor")
-  emailVerifications   EmailVerificationToken[]
+  projects               Project[]
+  memberships            OrganizationMember[]
+  preference             UserPreference?
+  createdOrgs            Organization[]            @relation("OrgCreator")
+  notifications          Notification[]            @relation("NotificationActor")
+  emailVerifications     EmailVerificationToken[]
+
+  @@index([stripeCustomerId])
+  @@index([stripeSubscriptionId])
 }
 
 model Organization {

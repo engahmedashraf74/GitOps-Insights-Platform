@@ -22,8 +22,8 @@ function UpgradeInner() {
     setLoading(true);
     try {
       const session = await createCheckout();
-      if (session.url) {
-        window.location.assign(session.url);
+      if (session.checkoutUrl) {
+        window.location.assign(session.checkoutUrl);
         return;
       }
       push("Checkout session created.", "success");
@@ -78,7 +78,8 @@ function UpgradeInner() {
           </Button>
         </div>
         <p className="mt-4 text-xs text-zinc-500">
-          Billing uses a Stripe-ready checkout abstraction. Live Stripe keys are not configured yet.
+          Checkout uses Stripe subscription mode. Set STRIPE_SECRET_KEY and
+          STRIPE_PRICE_ID_PRO on the API to enable live upgrades.
         </p>
       </div>
     </div>

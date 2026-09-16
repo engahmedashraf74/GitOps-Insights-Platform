@@ -18,13 +18,14 @@ Docs: `GET /api/docs`.
 
 JWT payload is unchanged: `{ userId, email }`. Existing users were backfilled as verified.
 
-## Billing (Public Beta v1)
+## Billing
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/billing/subscription` | Plan entitlements + usage |
+| GET | `/billing/subscription` | JWT. `{ plan, status, subscriptionId }` from the current user |
 | GET | `/billing/usage` | Application and Argo CD integration counts |
-| POST | `/billing/checkout` | Stripe-ready stub checkout session (no Stripe keys) |
+| POST | `/billing/checkout` | JWT. Stripe Checkout (`mode: subscription`) → `{ checkoutUrl }` |
+| POST | `/billing/webhook` | Stripe signature. No JWT. Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
 | POST | `/billing/stub/activate-pro` | Dev-only; blocked when `NODE_ENV=production` |
 | GET | `/billing/ai/status` | Pro-only (`requireProPlan()`). Placeholder AI entitlement |
 
@@ -132,6 +133,10 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 
 - `INTEGRATION_ENCRYPTION_KEY` (optional, 32+ chars) encrypts Argo tokens.
 - `JWT_SECRET` defaults to `my-secret-key` so existing tokens keep working.
-- `APP_URL` is used in verification and checkout redirect links (default `http://localhost:3001`).
+- `STRIPE_SECRET_KEY` — Stripe secret key for Checkout and webhooks.
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (`whsec_...`).
+- `STRIPE_PRICE_ID_PRO` — Price id for the Pro subscription.
+- `FRONTEND_URL` — Public frontend origin used in Checkout success/cancel URLs (falls back to `APP_URL`).
+- `APP_URL` is used in verification links (default `http://localhost:3001`).
 - `SMTP_HOST` optional. If unset, verification links are logged.
 - `ARGOCD_URL` / `ARGOCD_TOKEN` are a **development fallback only**. Production uses stored per-organization integrations unless `ARGOCD_ENV_FALLBACK=true`.
