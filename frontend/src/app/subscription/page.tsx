@@ -4,19 +4,29 @@ import { PlanUsageBar } from "@/components/billing/plan-usage-bar";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
-import { getSubscription, type PlanEntitlements } from "@/services/billing";
+import {
+  getSubscription,
+  getUsage,
+  isProSubscription,
+  type PlanUsage,
+  type SubscriptionState,
+} from "@/services/billing";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function SubscriptionPage() {
   const ready = useAuthGuard();
-  const [data, setData] = useState<PlanEntitlements | null>(null);
+  const [data, setData] = useState<SubscriptionState | null>(null);
+  const [usage, setUsage] = useState<PlanUsage | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!ready) return;
-    void getSubscription()
-      .then(setData)
+    void Promise.all([getSubscription(), getUsage()])
+      .then(([subscription, planUsage]) => {
+        setData(subscription);
+        setUsage(planUsage);
+      })
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : "Could not load plan."),
       );
@@ -24,13 +34,15 @@ export default function SubscriptionPage() {
 
   if (!ready) return null;
 
+  const isPro = data ? isProSubscription(data) : false;
+
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader
         title="Subscription"
         description="GitOps Insights Public Beta · Free and Pro plans."
         actions={
-          data?.isPro ? null : (
+          isPro ? null : (
             <Link href="/upgrade">
               <Button>Upgrade to Pro</Button>
             </Link>
@@ -40,11 +52,19 @@ export default function SubscriptionPage() {
       {error ? <p className="text-sm text-rose-200">{error}</p> : null}
       {data ? (
         <div className="space-y-4">
-          <PlanUsageBar
-            applications={data.usage.applications}
-            applicationLimit={data.usage.applicationLimit}
-            isPro={data.isPro}
-          />
+          {usage ? (
+            <PlanUsageBar
+              applications={usage.applications}
+              applicationLimit={usage.applicationLimit}
+              isPro={isPro}
+            />
+          ) : null}
+          <p className="text-sm text-zinc-400">
+            Plan <span className="text-zinc-200">{data.plan}</span>
+            {" · "}
+            Status <span className="text-zinc-200">{data.status}</span>
+            {data.subscriptionId ? ` · ${data.subscriptionId}` : null}
+          </p>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border border-white/8 p-5">
               <h2 className="text-sm font-medium">Free</h2>
