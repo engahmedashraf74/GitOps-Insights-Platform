@@ -119,10 +119,25 @@ spec:
                   name: smtp-secret
                   key: SMTP_PASS
 
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-secret
+                  key: STRIPE_SECRET_KEY
+
+            - name: STRIPE_PRICE_ID_PRO
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-secret
+                  key: STRIPE_PRICE_ID_PRO
+
             - name: MAIL_FROM
               value: "GitOps Insights <ahmedashraf016n@gmail.com>"
 
             - name: APP_URL
+              value: "http://192.168.49.2:30883"
+
+            - name: FRONTEND_URL
               value: "http://192.168.49.2:30883"
 
           command:
