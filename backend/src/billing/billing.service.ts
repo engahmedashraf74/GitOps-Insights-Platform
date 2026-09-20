@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, Logger, ServiceUnavailableException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { entitlementsFor, FREE_MAX_APPLICATIONS, isProPlan } from './plan';
@@ -24,10 +30,32 @@ export class BillingService {
       throw new BadRequestException('User not found.');
     }
 
+    const organization = await this.organizations.ensureForUser(userId);
+    const entitlements = entitlementsFor(organization);
+    const usage = await this.getUsage(userId);
+    const status = displayStatus(
+      user.subscriptionStatus,
+      entitlements.isPro,
+      organization.subscriptionExpiresAt,
+    );
+
     return {
-      plan: user.subscriptionPlan ?? 'free',
-      status: user.subscriptionStatus ?? 'free',
+      plan: entitlements.isPro ? 'pro' : (user.subscriptionPlan ?? 'free'),
+      status,
       subscriptionId: user.stripeSubscriptionId,
+      customerId: user.stripeCustomerId,
+      renewalDate: organization.subscriptionExpiresAt,
+      cancelAtPeriodEnd: user.cancelAtPeriodEnd,
+      isPro: entitlements.isPro,
+      usage,
+      entitlements: {
+        fullAnalytics: entitlements.fullAnalytics,
+        fullHistory: entitlements.fullHistory,
+        aiFeatures: entitlements.aiFeatures,
+        maxApplications: entitlements.maxApplications,
+        maxArgocdIntegrations: entitlements.maxArgocdIntegrations,
+        historyDays: entitlements.historyDays,
+      },
     };
   }
 
@@ -51,6 +79,8 @@ export class BillingService {
       applicationLimit: entitlements.maxApplications,
       argocdIntegrations: integrations,
       argocdIntegrationLimit: entitlements.maxArgocdIntegrations,
+      plan: entitlements.isPro ? 'pro' : 'free',
+      status: organization.subscriptionStatus,
     };
   }
 
@@ -60,7 +90,11 @@ export class BillingService {
     return Math.min(incomingCount, FREE_MAX_APPLICATIONS);
   }
 
-  async createCheckoutSession(userId: number, email: string) {
+  async createCheckoutSession(
+    userId: number,
+    email: string,
+    promotionCode?: string,
+  ) {
     const stripe = this.requireStripe();
     const priceId = process.env.STRIPE_PRICE_ID_PRO?.trim();
     if (!priceId) {
@@ -69,16 +103,15 @@ export class BillingService {
       );
     }
 
-    const frontendUrl = (
-      process.env.FRONTEND_URL ||
-      process.env.APP_URL ||
-      'http://localhost:3001'
-    ).replace(/\/$/, '');
-
+    const frontendUrl = this.frontendUrl();
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException('User not found.');
     }
+
+    const promotion = promotionCode
+      ? await this.resolvePromotionCode(stripe, promotionCode)
+      : null;
 
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
@@ -90,6 +123,9 @@ export class BillingService {
       subscription_data: {
         metadata: { userId: String(userId) },
       },
+      ...(promotion
+        ? { discounts: [{ promotion_code: promotion.id }] }
+        : { allow_promotion_codes: true }),
       ...(user.stripeCustomerId
         ? { customer: user.stripeCustomerId }
         : { customer_email: email }),
@@ -123,6 +159,34 @@ export class BillingService {
     });
 
     return { checkoutUrl: session.url };
+  }
+
+  async createPortalSession(userId: number) {
+    const stripe = this.requireStripe();
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email,
+        metadata: { userId: String(userId) },
+      });
+      customerId = customer.id;
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { stripeCustomerId: customerId },
+      });
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${this.frontendUrl()}/billing`,
+    });
+
+    return { portalUrl: session.url };
   }
 
   async handleWebhook(rawBody: Buffer | undefined, signature: string | undefined) {
@@ -180,8 +244,9 @@ export class BillingService {
       subscriptionPlan: 'pro',
       subscriptionStatus: 'active',
       expiresAt: expires,
+      cancelAtPeriodEnd: false,
     });
-    return this.prisma.user.findUnique({ where: { id: userId } });
+    return this.getSubscription(userId);
   }
 
   private async onCheckoutCompleted(session: Stripe.Checkout.Session) {
@@ -197,12 +262,29 @@ export class BillingService {
       return;
     }
 
+    let expiresAt: Date | null = null;
+    let status = 'active';
+    const subId = subscriptionId(session.subscription);
+    if (subId && this.stripe) {
+      try {
+        const subscription = await this.stripe.subscriptions.retrieve(subId);
+        expiresAt = periodEnd(subscription);
+        status = mapStripeStatus(subscription.status);
+      } catch (error) {
+        this.logger.warn(
+          `Could not retrieve subscription ${subId} after checkout: ${String(error)}`,
+        );
+      }
+    }
+
     await this.applySubscriptionState({
       userId,
       stripeCustomerId: customerId(session.customer),
-      stripeSubscriptionId: subscriptionId(session.subscription),
+      stripeSubscriptionId: subId,
       subscriptionPlan: 'pro',
-      subscriptionStatus: 'active',
+      subscriptionStatus: status,
+      expiresAt,
+      cancelAtPeriodEnd: false,
     });
   }
 
@@ -219,14 +301,20 @@ export class BillingService {
       return;
     }
 
-    const entitled = isEntitledStatus(subscription.status);
+    const expiresAt = periodEnd(subscription);
+    const stillCovered = Boolean(expiresAt && expiresAt.getTime() > Date.now());
+    const entitled =
+      isEntitledStatus(subscription.status) ||
+      (subscription.status === 'canceled' && stillCovered);
+
     await this.applySubscriptionState({
       userId,
       stripeCustomerId: customerId(subscription.customer),
       stripeSubscriptionId: subscription.id,
       subscriptionPlan: entitled ? 'pro' : 'free',
-      subscriptionStatus: entitled ? mapStripeStatus(subscription.status) : 'inactive',
-      expiresAt: periodEnd(subscription),
+      subscriptionStatus: mapLifecycleStatus(subscription.status, stillCovered),
+      expiresAt,
+      cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end),
     });
   }
 
@@ -250,7 +338,24 @@ export class BillingService {
       subscriptionPlan: 'free',
       subscriptionStatus: 'inactive',
       expiresAt: null,
+      cancelAtPeriodEnd: false,
     });
+  }
+
+  private async resolvePromotionCode(stripe: Stripe, code: string) {
+    const trimmed = code.trim();
+    const result = await stripe.promotionCodes.list({
+      code: trimmed,
+      active: true,
+      limit: 1,
+    });
+    const promotion = result.data[0];
+    if (!promotion) {
+      throw new BadRequestException(
+        `Promotion code "${trimmed}" is invalid or expired.`,
+      );
+    }
+    return promotion;
   }
 
   private async resolveUserId(refs: {
@@ -289,12 +394,14 @@ export class BillingService {
     subscriptionPlan: string;
     subscriptionStatus: string;
     expiresAt?: Date | null;
+    cancelAtPeriodEnd?: boolean;
   }) {
     const userUpdate: {
       subscriptionPlan: string;
       subscriptionStatus: string;
       stripeCustomerId?: string;
       stripeSubscriptionId?: string | null;
+      cancelAtPeriodEnd?: boolean;
     } = {
       subscriptionPlan: input.subscriptionPlan,
       subscriptionStatus: input.subscriptionStatus,
@@ -304,6 +411,9 @@ export class BillingService {
     }
     if (input.stripeSubscriptionId !== undefined) {
       userUpdate.stripeSubscriptionId = input.stripeSubscriptionId;
+    }
+    if (input.cancelAtPeriodEnd !== undefined) {
+      userUpdate.cancelAtPeriodEnd = input.cancelAtPeriodEnd;
     }
 
     await this.prisma.user.update({
@@ -318,12 +428,21 @@ export class BillingService {
       data: {
         subscriptionPlan: pro ? SubscriptionPlan.PRO : SubscriptionPlan.FREE,
         subscriptionStatus: orgStatus(input.subscriptionStatus, pro),
-        subscriptionExpiresAt: input.expiresAt ?? undefined,
+        subscriptionExpiresAt:
+          input.expiresAt === undefined ? undefined : input.expiresAt,
         ...(input.stripeCustomerId
           ? { stripeCustomerId: input.stripeCustomerId }
           : {}),
       },
     });
+  }
+
+  private frontendUrl(): string {
+    return (
+      process.env.FRONTEND_URL ||
+      process.env.APP_URL ||
+      'http://localhost:3001'
+    ).replace(/\/$/, '');
   }
 
   private requireStripe(): Stripe {
@@ -359,22 +478,47 @@ function isEntitledStatus(status: Stripe.Subscription.Status): boolean {
 function mapStripeStatus(status: Stripe.Subscription.Status): string {
   if (status === 'trialing') return 'trialing';
   if (status === 'past_due') return 'past_due';
+  if (status === 'canceled') return 'canceled';
+  if (status === 'unpaid' || status === 'incomplete_expired') return 'expired';
   return 'active';
 }
 
-function orgStatus(
-  status: string,
-  pro: boolean,
-): SubscriptionStatus {
-  if (!pro) return SubscriptionStatus.inactive;
+function mapLifecycleStatus(
+  status: Stripe.Subscription.Status,
+  stillCovered: boolean,
+): string {
+  if (status === 'canceled' && stillCovered) return 'canceled';
+  if (status === 'canceled' && !stillCovered) return 'expired';
+  return mapStripeStatus(status);
+}
+
+function orgStatus(status: string, pro: boolean): SubscriptionStatus {
   if (status === 'trialing') return SubscriptionStatus.trialing;
   if (status === 'past_due') return SubscriptionStatus.past_due;
   if (status === 'canceled') return SubscriptionStatus.canceled;
+  if (!pro) return SubscriptionStatus.inactive;
   return SubscriptionStatus.active;
 }
 
 function periodEnd(subscription: Stripe.Subscription): Date | null {
-  const item = subscription.items.data[0];
-  const end = item?.current_period_end;
+  const fromItem = subscription.items.data[0]?.current_period_end;
+  const fromSub = (subscription as Stripe.Subscription & {
+    current_period_end?: number;
+  }).current_period_end;
+  const end = fromItem ?? fromSub;
   return typeof end === 'number' ? new Date(end * 1000) : null;
+}
+
+function displayStatus(
+  stored: string | null | undefined,
+  isPro: boolean,
+  expiresAt: Date | null,
+): string {
+  if (expiresAt && expiresAt.getTime() < Date.now() && !isPro) {
+    return stored === 'trialing' ? 'expired' : stored === 'canceled' ? 'expired' : (stored ?? 'inactive');
+  }
+  if (isPro) {
+    return stored && stored !== 'free' ? stored : 'active';
+  }
+  return stored ?? 'free';
 }

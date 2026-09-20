@@ -33,7 +33,7 @@ import { useMemo, useState } from "react";
 export default function AnalyticsPage() {
   const ready = useAuthGuard();
   const { loading, error, snapshot, reload } = useWorkspace(ready);
-  const [range, setRange] = useState<TimeRange>("30d");
+  const [range, setRange] = useState<TimeRange>("7d");
   const deployments = snapshot?.deployments ?? [];
   const connected = isArgoConnected(snapshot);
   const metrics = useMemo(
@@ -66,19 +66,25 @@ export default function AnalyticsPage() {
             : "Free plan includes 7 days of history. Upgrade to Pro for full analytics."
         }
         actions={
-          <div className="flex gap-1">
-            {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
-              <button
-                key={item}
-                onClick={() => setRange(item)}
-                className={`rounded-md px-2 py-1 text-xs ${
-                  range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
-                }`}
-              >
-                {item.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          snapshot?.subscription?.fullAnalytics ? (
+            <div className="flex gap-1">
+              {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
+                <button
+                  key={item}
+                  onClick={() => setRange(item)}
+                  className={`rounded-md px-2 py-1 text-xs ${
+                    range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
+                  }`}
+                >
+                  {item.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <Link href="/upgrade" className="text-sm text-teal-300">
+              Upgrade to Pro
+            </Link>
+          )
         }
       />
       {snapshot?.subscription && !snapshot.subscription.fullAnalytics ? (
@@ -127,9 +133,15 @@ export default function AnalyticsPage() {
 
       {connected && !error && !loading ? (
       <>
-      <div className="mt-8">
-        <DoraCards metrics={buildDoraMetrics(deployments)} />
-      </div>
+      {snapshot?.subscription?.fullAnalytics ? (
+        <div className="mt-8">
+          <DoraCards metrics={buildDoraMetrics(deployments)} />
+        </div>
+      ) : (
+        <div className="mt-8 rounded-xl border border-teal-400/20 bg-teal-400/5 p-5 text-sm text-zinc-300">
+          Advanced analytics, DORA, and environment comparison are included with Pro.
+        </div>
+      )}
 
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
         <ChartCard title="Health trends">
@@ -148,9 +160,11 @@ export default function AnalyticsPage() {
             <DeploymentActivityChart data={buildActivitySeries(deployments, range)} />
           )}
         </ChartCard>
-        <ChartCard title="Environment comparison">
-          <EnvironmentChart data={buildEnvironmentComparison(deployments)} />
-        </ChartCard>
+        {snapshot?.subscription?.fullAnalytics ? (
+          <ChartCard title="Environment comparison">
+            <EnvironmentChart data={buildEnvironmentComparison(deployments)} />
+          </ChartCard>
+        ) : null}
       </div>
       </>
       ) : null}

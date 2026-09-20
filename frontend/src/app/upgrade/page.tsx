@@ -1,6 +1,8 @@
 "use client";
 
+import { PricingSection } from "@/components/billing/pricing-section";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useToast } from "@/components/ui/toast";
@@ -14,6 +16,7 @@ function UpgradeInner() {
   const params = useSearchParams();
   const { push } = useToast();
   const [loading, setLoading] = useState(false);
+  const [promo, setPromo] = useState("");
   const checkout = params.get("checkout");
 
   if (!ready) return null;
@@ -21,7 +24,7 @@ function UpgradeInner() {
   async function startCheckout() {
     setLoading(true);
     try {
-      const session = await createCheckout();
+      const session = await createCheckout(promo);
       if (session.checkoutUrl) {
         window.location.assign(session.checkoutUrl);
         return;
@@ -43,7 +46,7 @@ function UpgradeInner() {
         return;
       }
       push("Pro plan activated for this beta workspace.", "success");
-      router.replace("/subscription");
+      router.replace("/billing");
     } catch (err) {
       push(err instanceof Error ? err.message : "Could not activate Pro.", "error");
     } finally {
@@ -52,23 +55,32 @@ function UpgradeInner() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Upgrade to Pro"
-        description="Unlimited applications, full history, full analytics, and future AI insights."
+        description="Unlimited applications, full history, advanced analytics, and AI Deployment Analysis — $10/month."
       />
       {checkout ? (
         <p className="mb-4 rounded-lg border border-white/10 px-3 py-2 text-sm text-zinc-400">
-          Checkout session {checkout} is ready. Stripe keys are not wired in Public Beta v1.
+          Checkout session {checkout} is ready.
         </p>
       ) : null}
-      <div className="rounded-2xl border border-white/8 p-6">
-        <ul className="space-y-2 text-sm text-zinc-300">
-          <li>Unlimited Argo CD applications and projects</li>
-          <li>Full deployment history</li>
-          <li>Full workspace analytics</li>
-          <li>AI features flagged on for the Pro entitlement</li>
-        </ul>
+      <PricingSection ctaHref="/upgrade" highlightPro />
+      <div className="mt-8 rounded-2xl border border-white/8 p-6">
+        <label className="text-sm text-zinc-300" htmlFor="promo">
+          Promo code
+        </label>
+        <Input
+          id="promo"
+          className="mt-2 max-w-sm"
+          placeholder="BETA100, STUDENT50, or LAUNCH50"
+          value={promo}
+          onChange={(event) => setPromo(event.target.value.toUpperCase())}
+        />
+        <p className="mt-2 text-xs text-zinc-500">
+          Codes are applied in Stripe Checkout. BETA100 is 100% off, STUDENT50
+          and LAUNCH50 are 50% off when those promotion codes exist in Stripe.
+        </p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button loading={loading} onClick={() => void startCheckout()}>
             Continue to checkout
@@ -77,10 +89,6 @@ function UpgradeInner() {
             Activate Pro (beta stub)
           </Button>
         </div>
-        <p className="mt-4 text-xs text-zinc-500">
-          Checkout uses Stripe subscription mode. Set STRIPE_SECRET_KEY and
-          STRIPE_PRICE_ID_PRO on the API to enable live upgrades.
-        </p>
       </div>
     </div>
   );
