@@ -131,6 +131,12 @@ spec:
                   name: stripe-secret
                   key: STRIPE_PRICE_ID_PRO
 
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stripe-webhook-secret
+                  key: STRIPE_WEBHOOK_SECRET
+
             - name: MAIL_FROM
               value: "GitOps Insights <ahmedashraf016n@gmail.com>"
 
