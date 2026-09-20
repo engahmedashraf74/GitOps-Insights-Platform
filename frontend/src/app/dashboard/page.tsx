@@ -109,6 +109,8 @@ export default function DashboardPage() {
             applications={snapshot.usage?.applications ?? applications.length}
             applicationLimit={snapshot.subscription.maxApplications}
             isPro={snapshot.subscription.isPro}
+            status={snapshot.subscription.status}
+            plan={snapshot.subscription.plan === "PRO" ? "pro" : "free"}
           />
         </div>
       ) : null}
@@ -147,10 +149,19 @@ export default function DashboardPage() {
 
       {connected && !error && !loading ? (
       <>
-      <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-zinc-200">DORA metrics</h2>
-        <DoraCards metrics={dora} />
-      </div>
+      {snapshot?.subscription?.fullAnalytics ? (
+        <div className="mt-8">
+          <h2 className="mb-3 text-sm font-medium text-zinc-200">DORA metrics</h2>
+          <DoraCards metrics={dora} />
+        </div>
+      ) : (
+        <div className="mt-8 rounded-xl border border-teal-400/20 bg-teal-400/5 p-5 text-sm text-zinc-300">
+          Advanced analytics and DORA metrics are a Pro feature.{" "}
+          <Link href="/upgrade" className="text-teal-300">
+            Upgrade to Pro
+          </Link>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
@@ -158,21 +169,23 @@ export default function DashboardPage() {
             title="Deployment activity"
             description="Volume of recorded deployments over the selected window."
             actions={
-              <div className="flex gap-1">
-                {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => setRange(item)}
-                    className={`rounded-md px-2 py-1 text-xs ${
-                      range === item
-                        ? "bg-teal-400/15 text-teal-200"
-                        : "text-zinc-400 hover:bg-white/5"
-                    }`}
-                  >
-                    {item.toUpperCase()}
-                  </button>
-                ))}
-              </div>
+              snapshot?.subscription?.fullAnalytics ? (
+                <div className="flex gap-1">
+                  {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => setRange(item)}
+                      className={`rounded-md px-2 py-1 text-xs ${
+                        range === item
+                          ? "bg-teal-400/15 text-teal-200"
+                          : "text-zinc-400 hover:bg-white/5"
+                      }`}
+                    >
+                      {item.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              ) : undefined
             }
           >
             {activity.every((point) => point.deployments === 0) ? (
@@ -238,17 +251,32 @@ export default function DashboardPage() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-sm font-medium">Insights</h2>
-        <div className="grid gap-4 md:grid-cols-2">
-          {insightPlaceholders.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] p-5"
+        {snapshot?.subscription?.aiFeatures ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {insightPlaceholders.map((item) => (
+              <div
+                key={item.title}
+                className="rounded-xl border border-dashed border-white/12 bg-white/[0.02] p-5"
+              >
+                <p className="text-sm font-medium text-zinc-100">{item.title}</p>
+                <p className="mt-2 text-sm text-zinc-500">{item.body}</p>
+              </div>
+            ))}
+            <Link
+              href="/ai"
+              className="rounded-xl border border-teal-400/20 bg-teal-400/5 p-5 text-sm text-teal-200"
             >
-              <p className="text-sm font-medium text-zinc-100">{item.title}</p>
-              <p className="mt-2 text-sm text-zinc-500">{item.body}</p>
-            </div>
-          ))}
-        </div>
+              Open AI Deployment Analysis
+            </Link>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-white/8 p-5 text-sm text-zinc-400">
+            AI Deployment Analysis is included with Pro.{" "}
+            <Link href="/upgrade" className="text-teal-300">
+              Upgrade to Pro
+            </Link>
+          </div>
+        )}
       </section>
       </>
       ) : null}

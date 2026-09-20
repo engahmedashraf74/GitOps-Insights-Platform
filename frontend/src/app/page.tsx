@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { landingPreviewApps } from "@/mock/demo-data";
 import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
+import { PricingSection } from "@/components/billing/pricing-section";
 
 const features = [
   {
@@ -40,6 +41,9 @@ export default function LandingPage() {
           <span className="text-sm font-semibold">GitOps Insights</span>
         </div>
         <nav className="flex items-center gap-3 text-sm">
+          <Link href="/pricing" className="text-zinc-400 hover:text-white">
+            Pricing
+          </Link>
           <Link href="/login" className="text-zinc-400 hover:text-white">
             Sign in
           </Link>
@@ -197,6 +201,17 @@ export default function LandingPage() {
         </p>
       </section>
 
+      <section id="pricing" className="mx-auto max-w-6xl px-6 py-12">
+        <h2 className="text-2xl font-semibold">Pricing</h2>
+        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
+          Start free for public beta. Pro is $10/month for unlimited history,
+          advanced analytics, and AI Deployment Analysis.
+        </p>
+        <div className="mt-8">
+          <PricingSection ctaHref="/register" />
+        </div>
+      </section>
+
       <section className="mx-auto max-w-6xl px-6 py-16 text-center">
         <h2 className="text-3xl font-semibold">See delivery health clearly.</h2>
         <p className="mt-3 text-sm text-zinc-400">
@@ -213,6 +228,9 @@ export default function LandingPage() {
       <footer className="border-t border-white/8 px-6 py-8 text-sm text-zinc-500">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p>GitOps Insights</p>
+          <Link href="/pricing" className="text-zinc-400 hover:text-zinc-200">
+            Pricing
+          </Link>
           <p>Deployment health for GitOps teams.</p>
         </div>
       </footer>

@@ -7,6 +7,9 @@ import {
 export const FREE_MAX_APPLICATIONS = 3;
 export const FREE_MAX_ARGOCD_INTEGRATIONS = 1;
 export const FREE_HISTORY_DAYS = 7;
+export const PRO_MONTHLY_PRICE_USD = 10;
+
+export const SUPPORTED_PROMO_CODES = ['BETA100', 'STUDENT50', 'LAUNCH50'] as const;
 
 export function isProPlan(organization: Pick<
   Organization,
@@ -15,19 +18,28 @@ export function isProPlan(organization: Pick<
   if (organization.subscriptionPlan !== SubscriptionPlan.PRO) {
     return false;
   }
-  if (
-    organization.subscriptionStatus !== SubscriptionStatus.active &&
-    organization.subscriptionStatus !== SubscriptionStatus.trialing
-  ) {
+
+  const expiresAt = organization.subscriptionExpiresAt;
+  const expired = Boolean(expiresAt && expiresAt.getTime() < Date.now());
+  if (expired) {
     return false;
   }
+
+  const status = organization.subscriptionStatus;
   if (
-    organization.subscriptionExpiresAt &&
-    organization.subscriptionExpiresAt.getTime() < Date.now()
+    status === SubscriptionStatus.active ||
+    status === SubscriptionStatus.trialing ||
+    status === SubscriptionStatus.past_due
   ) {
-    return false;
+    return true;
   }
-  return true;
+
+  // Canceled but still inside the paid period.
+  if (status === SubscriptionStatus.canceled && expiresAt) {
+    return true;
+  }
+
+  return false;
 }
 
 export function maxApplications(

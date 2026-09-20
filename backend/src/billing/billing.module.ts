@@ -3,21 +3,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { BillingService } from './billing.service';
 import { BillingController } from './billing.controller';
-import { CheckoutSessionService } from './checkout-session.service';
-import { StubCheckoutSessionService } from './stub-checkout-session.service';
+import { BillingWebhookController } from './billing-webhook.controller';
 import { ProPlanGuard } from './pro-plan.guard';
 
 @Module({
   imports: [PrismaModule, OrganizationsModule],
-  controllers: [BillingController],
-  providers: [
-    BillingService,
-    ProPlanGuard,
-    {
-      provide: CheckoutSessionService,
-      useClass: StubCheckoutSessionService,
-    },
-  ],
-  exports: [BillingService, CheckoutSessionService, ProPlanGuard],
+  controllers: [BillingController, BillingWebhookController],
+  providers: [BillingService, ProPlanGuard],
+  exports: [BillingService, ProPlanGuard],
 })
 export class BillingModule {}

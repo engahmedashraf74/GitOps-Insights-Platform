@@ -47,6 +47,11 @@ export default function SettingsPage() {
       <PageHeader
         title="Settings"
         description="Account, security, and workspace preferences for this client."
+        actions={
+          <Link href="/billing">
+            <Button variant="secondary">Billing</Button>
+          </Link>
+        }
       />
       <div className="mb-6 flex flex-wrap gap-1 rounded-xl border border-white/8 p-1">
         {tabs.map((item) => (

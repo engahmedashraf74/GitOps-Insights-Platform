@@ -18,15 +18,20 @@ Docs: `GET /api/docs`.
 
 JWT payload is unchanged: `{ userId, email }`. Existing users were backfilled as verified.
 
-## Billing (Public Beta v1)
+## Billing
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/billing/subscription` | Plan entitlements + usage |
-| GET | `/billing/usage` | Application and Argo CD integration counts |
-| POST | `/billing/checkout` | Stripe-ready stub checkout session (no Stripe keys) |
+| GET | `/billing/subscription` | JWT. `{ plan, status, subscriptionId, customerId, renewalDate, cancelAtPeriodEnd, isPro, usage, entitlements }` |
+| GET | `/billing/usage` | Application and Argo CD integration counts plus plan/status |
+| POST | `/billing/checkout` | JWT. Optional `{ promotionCode }`. Stripe Checkout → `{ checkoutUrl }`. Always allows Stripe promo codes in the Checkout UI |
+| POST | `/billing/portal` | JWT. Stripe Customer Portal → `{ portalUrl }` |
+| POST | `/billing/webhook` | Stripe signature. No JWT. `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
 | POST | `/billing/stub/activate-pro` | Dev-only; blocked when `NODE_ENV=production` |
-| GET | `/billing/ai/status` | Pro-only (`requireProPlan()`). Placeholder AI entitlement |
+| GET | `/billing/ai/status` | Pro-only |
+| GET | `/billing/ai/analyze` | Pro-only AI Deployment Analysis |
+
+Promo codes supported in Checkout: `BETA100`, `STUDENT50`, `LAUNCH50` (must exist as Stripe Promotion Codes).
 
 Free: 3 applications, 1 Argo CD integration, 7 days of deployment history.  
 Pro: unlimited applications/projects, full history, full analytics, AI flag on.
@@ -43,7 +48,7 @@ Pro: unlimited applications/projects, full history, full analytics, AI flag on.
 | GET | `/workspace/metrics` |
 | GET | `/workspace/activity?range=7d\|30d\|90d` |
 | GET | `/workspace/health` |
-| GET | `/workspace/dora` |
+| GET | `/workspace/dora` | **Pro-only** (`ProPlanGuard`) |
 | GET | `/workspace/environments` |
 | GET | `/workspace/search?q=` |
 | GET | `/workspace/notifications` |
@@ -132,6 +137,10 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 
 - `INTEGRATION_ENCRYPTION_KEY` (optional, 32+ chars) encrypts Argo tokens.
 - `JWT_SECRET` defaults to `my-secret-key` so existing tokens keep working.
-- `APP_URL` is used in verification and checkout redirect links (default `http://localhost:3001`).
+- `STRIPE_SECRET_KEY` — Stripe secret key for Checkout and webhooks.
+- `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (`whsec_...`).
+- `STRIPE_PRICE_ID_PRO` — Price id for the Pro subscription.
+- `FRONTEND_URL` — Public frontend origin used in Checkout success/cancel URLs (falls back to `APP_URL`).
+- `APP_URL` is used in verification links (default `http://localhost:3001`).
 - `SMTP_HOST` optional. If unset, verification links are logged.
 - `ARGOCD_URL` / `ARGOCD_TOKEN` are a **development fallback only**. Production uses stored per-organization integrations unless `ARGOCD_ENV_FALLBACK=true`.

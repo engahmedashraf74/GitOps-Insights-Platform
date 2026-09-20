@@ -1,33 +1,84 @@
 import { apiFetch } from "./api";
 
-export interface PlanEntitlements {
-  organizationId?: number;
-  plan: "FREE" | "PRO";
+export interface PlanUsage {
+  applications: number;
+  applicationLimit: number;
+  argocdIntegrations: number;
+  argocdIntegrationLimit: number;
+  plan?: string;
+  status?: string;
+}
+
+export interface SubscriptionState {
+  plan: string;
   status: string;
-  expiresAt: string | null;
+  subscriptionId: string | null;
+  customerId: string | null;
+  renewalDate: string | null;
+  cancelAtPeriodEnd: boolean;
   isPro: boolean;
-  maxApplications: number;
-  maxArgocdIntegrations: number;
-  historyDays: number | null;
-  fullAnalytics: boolean;
-  fullHistory: boolean;
-  aiFeatures: boolean;
-  usage: {
-    applications: number;
-    applicationLimit: number;
-    argocdIntegrations: number;
-    argocdIntegrationLimit: number;
+  usage: PlanUsage;
+  entitlements: {
+    fullAnalytics: boolean;
+    fullHistory: boolean;
+    aiFeatures: boolean;
+    maxApplications: number;
+    maxArgocdIntegrations: number;
+    historyDays: number | null;
   };
 }
 
-export async function getSubscription(): Promise<PlanEntitlements> {
-  return apiFetch<PlanEntitlements>("/billing/subscription");
+export async function getSubscription(): Promise<SubscriptionState> {
+  return apiFetch<SubscriptionState>("/billing/subscription");
 }
 
-export async function createCheckout(): Promise<{ id: string; url: string; provider: string }> {
-  return apiFetch("/billing/checkout", { method: "POST", body: JSON.stringify({}) });
+export async function getUsage(): Promise<PlanUsage> {
+  return apiFetch<PlanUsage>("/billing/usage");
+}
+
+export async function createCheckout(
+  promotionCode?: string,
+): Promise<{ checkoutUrl: string }> {
+  const body: { promotionCode?: string } = {};
+  if (promotionCode?.trim()) {
+    body.promotionCode = promotionCode.trim();
+  }
+  return apiFetch("/billing/checkout", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export async function createPortalSession(): Promise<{ portalUrl: string }> {
+  return apiFetch("/billing/portal", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export async function getAiAnalysis(): Promise<{
+  enabled: boolean;
+  insights: unknown[];
+  message: string;
+}> {
+  return apiFetch("/billing/ai/analyze");
 }
 
 export async function activateStubPro() {
-  return apiFetch("/billing/stub/activate-pro", { method: "POST", body: JSON.stringify({}) });
+  return apiFetch("/billing/stub/activate-pro", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+export function isProSubscription(subscription: Pick<SubscriptionState, "isPro" | "plan" | "status">) {
+  if (typeof subscription.isPro === "boolean") {
+    return subscription.isPro;
+  }
+  const entitled =
+    subscription.status === "active" ||
+    subscription.status === "trialing" ||
+    subscription.status === "past_due" ||
+    subscription.status === "canceled";
+  return subscription.plan === "pro" && entitled;
 }
