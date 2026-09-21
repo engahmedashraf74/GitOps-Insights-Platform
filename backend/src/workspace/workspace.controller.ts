@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Patch, Query } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { WorkspaceService } from './workspace.service';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
@@ -10,6 +10,7 @@ import { MarkNotificationsReadDto } from '../common/dto/mark-notifications-read.
 import { UpdateWorkspaceDto } from '../integrations/dto/integration.dto';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { ProPlanGuard } from '../billing/pro-plan.guard';
 
 @ApiTags('workspace')
 @JwtAuth()
@@ -63,6 +64,8 @@ export class WorkspaceController {
   }
 
   @Get('dora')
+  @UseGuards(ProPlanGuard)
+  @ApiOperation({ summary: 'Advanced DORA analytics (Pro)' })
   dora(@CurrentUser() user: JwtUser) {
     return this.workspaceService.dora(user);
   }

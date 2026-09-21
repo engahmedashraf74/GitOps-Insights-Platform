@@ -75,6 +75,8 @@ export default function ApplicationsPage() {
             applications={snapshot.usage?.applications ?? applications.length}
             applicationLimit={snapshot.subscription.maxApplications}
             isPro={snapshot.subscription.isPro}
+            status={snapshot.subscription.status}
+            plan={snapshot.subscription.plan === "PRO" ? "pro" : "free"}
           />
         </div>
       ) : null}

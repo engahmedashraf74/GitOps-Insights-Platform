@@ -1,10 +1,11 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtUser } from '../common/types/jwt-user';
 import { RequireProPlan } from './require-pro-plan.decorator';
+import { CreateCheckoutDto } from './dto/create-checkout.dto';
 
 @ApiTags('billing')
 @JwtAuth()
@@ -13,7 +14,9 @@ export class BillingController {
   constructor(private readonly billing: BillingService) {}
 
   @Get('subscription')
-  @ApiOperation({ summary: 'Current plan, status, and Stripe subscription id' })
+  @ApiOperation({
+    summary: 'Current plan, status, renewal, and Stripe identifiers',
+  })
   subscription(@CurrentUser() user: JwtUser) {
     return this.billing.getSubscription(user.userId);
   }
@@ -24,9 +27,21 @@ export class BillingController {
   }
 
   @Post('checkout')
-  @ApiOperation({ summary: 'Create a Stripe Checkout session for GitOps Insights Pro' })
-  checkout(@CurrentUser() user: JwtUser) {
-    return this.billing.createCheckoutSession(user.userId, user.email);
+  @ApiOperation({
+    summary: 'Create a Stripe Checkout session for GitOps Insights Pro',
+  })
+  checkout(@CurrentUser() user: JwtUser, @Body() body: CreateCheckoutDto = {}) {
+    return this.billing.createCheckoutSession(
+      user.userId,
+      user.email,
+      body.promotionCode,
+    );
+  }
+
+  @Post('portal')
+  @ApiOperation({ summary: 'Open the Stripe Customer Billing Portal' })
+  portal(@CurrentUser() user: JwtUser) {
+    return this.billing.createPortalSession(user.userId);
   }
 
   @Post('stub/activate-pro')
@@ -45,12 +60,24 @@ export class BillingController {
 
   @Get('ai/status')
   @RequireProPlan()
-  @ApiOperation({ summary: 'Placeholder for Pro-only AI features' })
+  @ApiOperation({ summary: 'Pro-only AI Deployment Analysis status' })
   aiStatus() {
     return {
       enabled: true,
-      available: false,
-      message: 'AI insights will be enabled on Pro after public beta.',
+      available: true,
+      message: 'AI Deployment Analysis is included with Pro.',
+    };
+  }
+
+  @Get('ai/analyze')
+  @RequireProPlan()
+  @ApiOperation({ summary: 'Pro-only AI Deployment Analysis workspace' })
+  aiAnalyze() {
+    return {
+      enabled: true,
+      insights: [],
+      message:
+        'Connect production telemetry to generate AI deployment analysis. Pro access is active.',
     };
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { PlanBadge } from "@/components/billing/plan-badges";
 import { SearchInput } from "@/components/ui/search-input";
 import { clearToken, getSessionUser } from "@/lib/auth";
 import { getPreferences, getWorkspace } from "@/lib/settings";
@@ -14,6 +15,8 @@ export function Topbar({
   onOpenSearch,
   onOpenNotifications,
   unreadCount,
+  isPro,
+  plan,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -21,6 +24,8 @@ export function Topbar({
   onOpenSearch: () => void;
   onOpenNotifications: () => void;
   unreadCount: number;
+  isPro?: boolean;
+  plan?: string;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -83,6 +88,13 @@ export function Topbar({
       </kbd>
       <div className="ml-auto flex items-center gap-2">
         <button
+          type="button"
+          className="hidden sm:inline-flex"
+          onClick={() => router.push("/billing")}
+        >
+          <PlanBadge plan={plan === "PRO" ? "pro" : plan} isPro={isPro} />
+        </button>
+        <button
           className="relative rounded-lg p-2 text-zinc-400 hover:bg-white/6"
           aria-label="Notifications"
           onClick={onOpenNotifications}
@@ -109,6 +121,12 @@ export function Topbar({
           </button>
           {menuOpen ? (
             <div className="absolute right-0 z-30 mt-2 w-48 rounded-lg border border-white/10 bg-[#111113] p-1 shadow-xl">
+              <button
+                className="w-full rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/6"
+                onClick={() => router.push("/billing")}
+              >
+                Billing
+              </button>
               <button
                 className="w-full rounded-md px-3 py-2 text-left text-sm text-zinc-300 hover:bg-white/6"
                 onClick={() => router.push("/settings")}

@@ -22,12 +22,16 @@ JWT payload is unchanged: `{ userId, email }`. Existing users were backfilled as
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/billing/subscription` | JWT. `{ plan, status, subscriptionId }` from the current user |
-| GET | `/billing/usage` | Application and Argo CD integration counts |
-| POST | `/billing/checkout` | JWT. Stripe Checkout (`mode: subscription`) → `{ checkoutUrl }` |
-| POST | `/billing/webhook` | Stripe signature. No JWT. Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
+| GET | `/billing/subscription` | JWT. `{ plan, status, subscriptionId, customerId, renewalDate, cancelAtPeriodEnd, isPro, usage, entitlements }` |
+| GET | `/billing/usage` | Application and Argo CD integration counts plus plan/status |
+| POST | `/billing/checkout` | JWT. Optional `{ promotionCode }`. Stripe Checkout → `{ checkoutUrl }`. Always allows Stripe promo codes in the Checkout UI |
+| POST | `/billing/portal` | JWT. Stripe Customer Portal → `{ portalUrl }` |
+| POST | `/billing/webhook` | Stripe signature. No JWT. `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted` |
 | POST | `/billing/stub/activate-pro` | Dev-only; blocked when `NODE_ENV=production` |
-| GET | `/billing/ai/status` | Pro-only (`requireProPlan()`). Placeholder AI entitlement |
+| GET | `/billing/ai/status` | Pro-only |
+| GET | `/billing/ai/analyze` | Pro-only AI Deployment Analysis |
+
+Promo codes supported in Checkout: `BETA100`, `STUDENT50`, `LAUNCH50` (must exist as Stripe Promotion Codes).
 
 Free: 3 applications, 1 Argo CD integration, 7 days of deployment history.  
 Pro: unlimited applications/projects, full history, full analytics, AI flag on.
@@ -44,7 +48,7 @@ Pro: unlimited applications/projects, full history, full analytics, AI flag on.
 | GET | `/workspace/metrics` |
 | GET | `/workspace/activity?range=7d\|30d\|90d` |
 | GET | `/workspace/health` |
-| GET | `/workspace/dora` |
+| GET | `/workspace/dora` | **Pro-only** (`ProPlanGuard`) |
 | GET | `/workspace/environments` |
 | GET | `/workspace/search?q=` |
 | GET | `/workspace/notifications` |
