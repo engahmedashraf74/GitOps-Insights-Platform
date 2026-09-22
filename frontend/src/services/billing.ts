@@ -56,12 +56,29 @@ export async function createPortalSession(): Promise<{ portalUrl: string }> {
   });
 }
 
+export interface DeploymentAnalysis {
+  applicationId: number;
+  healthStatus: string;
+  syncStatus: string;
+  rootCause: string;
+  recommendedFix: string;
+  confidence: number;
+}
+
 export async function getAiAnalysis(): Promise<{
   enabled: boolean;
   insights: unknown[];
   message: string;
 }> {
   return apiFetch("/billing/ai/analyze");
+}
+
+export async function analyzeDeployment(
+  applicationId: number,
+): Promise<DeploymentAnalysis> {
+  return apiFetch(
+    `/billing/ai/analyze?applicationId=${encodeURIComponent(String(applicationId))}`,
+  );
 }
 
 export async function activateStubPro() {

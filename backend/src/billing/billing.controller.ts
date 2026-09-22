@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
@@ -6,12 +6,17 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { JwtUser } from '../common/types/jwt-user';
 import { RequireProPlan } from './require-pro-plan.decorator';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
+import { AiAnalysisService } from '../ai-analysis/ai-analysis.service';
+import { AnalyzeQueryDto } from '../ai-analysis/analyze-query.dto';
 
 @ApiTags('billing')
 @JwtAuth()
 @Controller('billing')
 export class BillingController {
-  constructor(private readonly billing: BillingService) {}
+  constructor(
+    private readonly billing: BillingService,
+    private readonly aiAnalysis: AiAnalysisService,
+  ) {}
 
   @Get('subscription')
   @ApiOperation({
@@ -71,13 +76,19 @@ export class BillingController {
 
   @Get('ai/analyze')
   @RequireProPlan()
-  @ApiOperation({ summary: 'Pro-only AI Deployment Analysis workspace' })
-  aiAnalyze() {
-    return {
-      enabled: true,
-      insights: [],
-      message:
-        'Connect production telemetry to generate AI deployment analysis. Pro access is active.',
-    };
+  @ApiOperation({ summary: 'Analyze a GitOps application from live Argo CD data' })
+  aiAnalyze(
+    @CurrentUser() user: JwtUser,
+    @Query() query: AnalyzeQueryDto,
+  ) {
+    if (!query.applicationId) {
+      return {
+        enabled: true,
+        insights: [],
+        message:
+          'Pass applicationId to analyze a specific application from Argo CD data.',
+      };
+    }
+    return this.aiAnalysis.analyze(user.userId, query.applicationId);
   }
 }

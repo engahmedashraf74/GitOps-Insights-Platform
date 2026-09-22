@@ -15,6 +15,7 @@ import { formatRelative, percentLabel, toNumber } from "@/lib/format";
 import { buildActivitySeries } from "@/lib/metrics";
 import { getApplicationRepository, syncApplications } from "@/services/applications";
 import { getOverview } from "@/services/dashboard";
+import { AiDeploymentAnalysisCard } from "@/components/applications/ai-deployment-analysis-card";
 import { getEnvironments } from "@/services/environments";
 import type {
   ApplicationOverview,
@@ -36,7 +37,7 @@ export default function ApplicationDetailsPage({
   const { id } = use(params);
   const applicationId = Number(id);
   const ready = useAuthGuard();
-  const { applications, reload } = useWorkspace(ready);
+  const { applications, reload, snapshot } = useWorkspace(ready);
   const { push } = useToast();
   const application = applications.find((item) => item.id === applicationId);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -226,6 +227,10 @@ export default function ApplicationDetailsPage({
                 <DeploymentActivityChart data={activity} />
               </ChartCard>
             </div>
+            <AiDeploymentAnalysisCard
+              applicationId={applicationId}
+              isPro={Boolean(snapshot?.subscription?.isPro || snapshot?.subscription?.aiFeatures)}
+            />
           </>
         ) : (
           <EmptyState
