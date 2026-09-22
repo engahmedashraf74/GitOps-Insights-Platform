@@ -59,7 +59,7 @@ spec:
               echo "Postgres is accepting connections"
       containers:
         - name: backend
-          image: ahmedashraf74/gitops-backend:v18
+          image: ahmedashraf74/gitops-backend:v19
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
