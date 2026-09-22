@@ -453,6 +453,7 @@ export class ArgocdSyncService {
         data,
       });
       await this.replaceHistory(application.id, item);
+      await this.replaceObservedEvents(application.id, item);
       await this.ensureEnvironment(application.id, item.namespace);
       return { created: false, applicationId: application.id };
     }
@@ -470,6 +471,7 @@ export class ArgocdSyncService {
       create: data,
     });
     await this.replaceHistory(application.id, item);
+    await this.replaceObservedEvents(application.id, item);
     await this.ensureEnvironment(application.id, item.namespace);
     return { created: !existing, applicationId: application.id };
   }
@@ -513,6 +515,21 @@ export class ArgocdSyncService {
         startedAt: entry.startedAt,
         finishedAt: entry.deployedAt,
         commitSha: entry.revision,
+      })),
+    });
+  }
+
+  private async replaceObservedEvents(
+    applicationId: number,
+    item: MappedArgoApplication,
+  ) {
+    await this.prisma.applicationEvent.deleteMany({ where: { applicationId } });
+    if (!item.signals.length) return;
+    await this.prisma.applicationEvent.createMany({
+      data: item.signals.map((signal) => ({
+        applicationId,
+        type: signal.type,
+        message: signal.message,
       })),
     });
   }

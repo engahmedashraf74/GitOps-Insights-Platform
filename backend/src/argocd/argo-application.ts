@@ -17,6 +17,12 @@ export interface MappedArgoApplication {
   revision: string;
   lastObservedAt: Date | null;
   history: MappedArgoHistory[];
+  signals: MappedArgoSignal[];
+}
+
+export interface MappedArgoSignal {
+  type: string;
+  message: string;
 }
 
 export interface MappedArgoHistory {
@@ -97,7 +103,56 @@ export function mapArgoApplication(raw: unknown): MappedArgoApplication | null {
     revision,
     lastObservedAt: finishedAt || history[0]?.deployedAt || null,
     history,
+    signals: mapSignals(status, health, operation),
   };
+}
+
+function mapSignals(
+  status: Record<string, unknown> | undefined,
+  health: Record<string, unknown> | undefined,
+  operation: Record<string, unknown> | undefined,
+): MappedArgoSignal[] {
+  const signals: MappedArgoSignal[] = [];
+  const seen = new Set<string>();
+  const push = (type: string, message: string) => {
+    const trimmedType = type.trim();
+    const trimmedMessage = message.trim();
+    if (!trimmedType || !trimmedMessage) return;
+    const key = `${trimmedType}\n${trimmedMessage}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    signals.push({ type: trimmedType, message: trimmedMessage });
+  };
+
+  if (typeof health?.message === 'string') {
+    push('Health', health.message);
+  }
+  if (typeof operation?.message === 'string') {
+    push('Operation', operation.message);
+  }
+
+  if (Array.isArray(status?.conditions)) {
+    for (const item of status.conditions) {
+      const condition = asRecord(item);
+      if (!condition) continue;
+      push(String(condition.type || 'Condition'), String(condition.message || ''));
+    }
+  }
+
+  if (Array.isArray(status?.resources)) {
+    for (const item of status.resources) {
+      const resource = asRecord(item);
+      const resourceHealth = asRecord(resource?.health);
+      const kind = String(resource?.kind || 'Resource');
+      const name = String(resource?.name || '').trim();
+      const label = name ? `${kind}/${name}` : kind;
+      if (typeof resourceHealth?.message === 'string') {
+        push(label, resourceHealth.message);
+      }
+    }
+  }
+
+  return signals;
 }
 
 function mapHistory(
