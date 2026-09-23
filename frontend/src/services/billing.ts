@@ -63,6 +63,13 @@ export interface DeploymentAnalysis {
   rootCause: string;
   recommendedFix: string;
   confidence: number;
+  deploymentCount: number;
+  successRate: number;
+  failedDeploymentCount: number;
+  lastDeploymentAt: string | null;
+  riskScore: number;
+  stabilityScore: number;
+  recommendations: string[];
 }
 
 export async function getAiAnalysis(): Promise<{

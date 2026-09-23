@@ -4,6 +4,7 @@ import { ApplicationsService } from '../applications/applications.service';
 import { ArgocdService } from '../argocd/argocd.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { mapArgoApplication } from '../argocd/argo-application';
+import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
 import {
   analyzeDeploymentSignals,
   type DeploymentAnalysis,
@@ -29,7 +30,6 @@ export class AiAnalysisService {
       this.prisma.deployment.findMany({
         where: { applicationId },
         orderBy: { deployedAt: 'desc' },
-        take: 25,
       }),
     ]);
 
@@ -69,11 +69,20 @@ export class AiAnalysisService {
       .filter(Boolean)
       .join('\n');
 
+    const failedDeploymentCount = deployments.filter(isFailed).length;
+    const successCount = deployments.filter(isSucceeded).length;
+    const last = deployments[0]?.deployedAt;
+
     return analyzeDeploymentSignals({
       applicationId,
       healthStatus,
       syncStatus,
       eventText,
+      deploymentCount: deployments.length,
+      successCount,
+      failedDeploymentCount,
+      lastDeploymentAt: last ? last.toISOString() : null,
+      eventCount: events.length,
     });
   }
 }
