@@ -64,18 +64,50 @@ export function DeploymentTimeline({ rows }: { rows: Deployment[] }) {
   return (
     <ol className="space-y-4">
       {rows.map((row, index) => (
-        <li key={`${row.revision}-${index}`} className="flex gap-3">
-          <div className="mt-1 h-2 w-2 shrink-0 rounded-full bg-teal-400" />
-          <div>
-            <p className="text-sm text-zinc-100">
-              {shortRevision(row.revision)} · {row.environment || "unspecified env"}
+        <li key={`${row.id ?? row.revision}-${index}`} className="flex gap-3">
+          <div className={`mt-2 h-2 w-2 shrink-0 rounded-full ${statusDot(row.status)}`} />
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge value={row.status} />
+              <span className="text-sm text-zinc-200">{timelineDate(row.deployedAt)}</span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <HealthBadge value={row.healthStatus} />
+              <SyncBadge value={row.syncStatus} />
+            </div>
+            <p className="mt-2 font-mono text-xs text-zinc-300">
+              {shortRevision(row.revision)}
             </p>
-            <p className="mt-1 text-xs text-zinc-500">
-              {row.status} · {row.healthStatus || "Unknown"} · {formatDateTime(row.deployedAt)}
-            </p>
+            <p className="mt-1 text-xs text-zinc-500">{formatDateTime(row.deployedAt)}</p>
+            {row.environment ? (
+              <p className="mt-1 text-xs text-zinc-500">{row.environment}</p>
+            ) : null}
+            {row.commitSha ? (
+              <p className="mt-1 font-mono text-xs text-zinc-500">
+                {shortRevision(row.commitSha)}
+              </p>
+            ) : null}
           </div>
         </li>
       ))}
     </ol>
   );
+}
+
+function timelineDate(value?: string | null): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+  }).format(date);
+}
+
+function statusDot(status?: string | null): string {
+  const lower = (status || "").toLowerCase();
+  if (lower.includes("fail")) return "bg-rose-400";
+  if (lower.includes("progress") || lower.includes("run")) return "bg-amber-400";
+  if (lower.includes("success") || lower === "succeeded") return "bg-emerald-400";
+  return "bg-zinc-500";
 }

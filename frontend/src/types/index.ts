@@ -74,6 +74,7 @@ export interface Deployment {
   healthStatus?: string | null;
   environment?: string;
   deployedAt?: string;
+  commitSha?: string | null;
   applicationId?: number;
 }
 

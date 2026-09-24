@@ -1,6 +1,7 @@
 "use client";
 
 import { DeploymentIntelligencePanel } from "@/components/ai/deployment-intelligence-panel";
+import { DeploymentTimeline } from "@/components/deployments/deployment-table";
 import { UpgradeBadge } from "@/components/billing/plan-badges";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -11,6 +12,8 @@ import {
   type DeploymentAnalysis,
 } from "@/services/billing";
 import { ApiError } from "@/services/api";
+import { getDeployments } from "@/services/deployments";
+import type { Deployment } from "@/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -20,6 +23,7 @@ export default function AiAnalysisPage() {
   const isPro = Boolean(snapshot?.subscription?.isPro);
   const [applicationId, setApplicationId] = useState<number | null>(null);
   const [result, setResult] = useState<DeploymentAnalysis | null>(null);
+  const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,6 +52,21 @@ export default function AiAnalysisPage() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, isPro, ready]);
+
+  useEffect(() => {
+    if (!ready || !isPro || applicationId == null) return;
+    let cancelled = false;
+    void getDeployments(applicationId)
+      .then((rows) => {
+        if (!cancelled) setDeployments(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setDeployments([]);
       });
     return () => {
       cancelled = true;
@@ -87,6 +106,16 @@ export default function AiAnalysisPage() {
           {error ? <p className="text-sm text-rose-300">{error}</p> : null}
           {!loading && !error && result ? (
             <DeploymentIntelligencePanel result={result} />
+          ) : null}
+          {applicationId != null ? (
+            <section className="rounded-xl border border-white/8 p-5">
+              <h2 className="mb-4 text-sm font-medium">Deployment timeline</h2>
+              {deployments.length === 0 ? (
+                <p className="text-sm text-zinc-500">No deployment history is stored.</p>
+              ) : (
+                <DeploymentTimeline rows={deployments} />
+              )}
+            </section>
           ) : null}
           {!loading && !error && !result && applications.length === 0 ? (
             <p className="text-sm text-zinc-300">No applications found.</p>
