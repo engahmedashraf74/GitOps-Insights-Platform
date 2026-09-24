@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { landingPreviewApps } from "@/mock/demo-data";
-import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 import { PricingSection } from "@/components/billing/pricing-section";
+import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 
 const features = [
   {
@@ -27,6 +27,21 @@ const features = [
   {
     title: "Reliability insights",
     body: "Success rate, failure volume, and delivery frequency in one operational view.",
+  },
+];
+
+const reasons = [
+  {
+    title: "A shared delivery view",
+    body: "Platform teams can ship through Git and still lack one picture of what is healthy, drifting, or failing. GitOps Insights is that product surface for engineering managers and on-call owners.",
+  },
+  {
+    title: "Argo CD stays the source of truth",
+    body: "Connection is workspace-scoped. The product reads application health, sync, and deployment history from Argo CD instead of asking operators to reconstruct status from the cluster console.",
+  },
+  {
+    title: "Built for operators",
+    body: "The interface is a calm, accurate view of delivery health. Integration secrets stay off the client, and the account token is the only credential the browser holds.",
   },
 ];
 
@@ -76,17 +91,14 @@ export default function LandingPage() {
               Start for free
             </Link>
             <a
-              href="#preview"
+              href="#product"
               className="rounded-lg border border-white/12 px-5 py-3 text-sm text-zinc-200"
             >
-              View demo
+              View product
             </a>
           </div>
         </div>
-        <div
-          id="preview"
-          className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4 shadow-2xl"
-        >
+        <div className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4 shadow-2xl">
           <div className="mb-4 flex items-center justify-between text-xs text-zinc-500">
             <span>Overview</span>
             <span>Live preview</span>
@@ -122,83 +134,91 @@ export default function LandingPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold">The GitOps gap</h2>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-          Platform teams can ship through Git, but still lack a shared view of
-          what is healthy, drifting, or failing across environments. Cluster
-          consoles are powerful, but they are not a product surface for
-          engineering managers or on-call owners.
-        </p>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-12">
         <h2 className="text-2xl font-semibold">Core features</h2>
+        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
+          One operational view of health, sync, history, and reliability for
+          the applications you already deliver with GitOps.
+        </p>
         <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {features.map((feature) => (
             <div
               key={feature.title}
               className="rounded-xl border border-white/8 bg-white/[0.02] p-5"
             >
-              <h3 className="text-sm font-medium text-zinc-100">
-                {feature.title}
-              </h3>
+              <h3 className="text-sm font-medium text-zinc-100">{feature.title}</h3>
               <p className="mt-2 text-sm text-zinc-400">{feature.body}</p>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-6xl gap-8 px-6 py-12 lg:grid-cols-3">
-        {[
-          {
-            step: "01",
-            title: "Connect your workspace",
-            body: "Create a project and register the applications you already manage with GitOps.",
-          },
-          {
-            step: "02",
-            title: "Ingest deployment state",
-            body: "Record revisions, environments, sync, and health as deployments happen.",
-          },
-          {
-            step: "03",
-            title: "Operate from one view",
-            body: "Use overview, history, and analytics instead of reconstructing status from logs.",
-          },
-        ].map((item) => (
-          <div key={item.step} className="rounded-xl border border-white/8 p-5">
-            <p className="text-xs text-teal-300">{item.step}</p>
-            <h3 className="mt-2 text-lg font-medium">{item.title}</h3>
-            <p className="mt-2 text-sm text-zinc-400">{item.body}</p>
-          </div>
-        ))}
+      <section id="product" className="mx-auto max-w-6xl px-6 py-12">
+        <h2 className="text-2xl font-semibold">Product</h2>
+        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
+          The same surfaces operators use after sign-in: application health,
+          deployment history, and sync status.
+        </p>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <article className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4">
+            <p className="text-xs text-zinc-500">Application health</p>
+            <div className="mt-4 space-y-2">
+              {landingPreviewApps.map((app) => (
+                <div
+                  key={app.name}
+                  className="flex items-center justify-between rounded-lg border border-white/8 px-3 py-2"
+                >
+                  <p className="text-sm text-zinc-100">{app.name}</p>
+                  <HealthBadge value={app.health} />
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4">
+            <p className="text-xs text-zinc-500">Deployment history</p>
+            <div className="mt-4 space-y-2">
+              {landingPreviewApps.map((app) => (
+                <div
+                  key={app.revision}
+                  className="rounded-lg border border-white/8 px-3 py-2"
+                >
+                  <p className="text-sm text-zinc-100">{app.name}</p>
+                  <p className="mt-1 font-mono text-[11px] text-zinc-500">
+                    {app.revision} · {app.environment}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4">
+            <p className="text-xs text-zinc-500">Sync status</p>
+            <div className="mt-4 space-y-2">
+              {landingPreviewApps.map((app) => (
+                <div
+                  key={`${app.name}-sync`}
+                  className="flex items-center justify-between rounded-lg border border-white/8 px-3 py-2"
+                >
+                  <p className="text-sm text-zinc-100">{app.environment}</p>
+                  <SyncBadge value={app.sync} />
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold">Deployment analytics</h2>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-          Frequency, success rate, and failure volume are first-class views.
-          The product is built for operational truth, not vanity charts.
-        </p>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold">GitOps / Argo CD integration</h2>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-          Argo CD is the primary integration. Connection is workspace-scoped
-          so credentials never live in the client as a global secret. Additional
-          source-control and alerting integrations are staged for later releases.
-        </p>
-      </section>
-
-      <section className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold">Security and reliability</h2>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-          Authentication uses your account token. Integration secrets are treated
-          as sensitive and are not shipped in frontend source. The interface is
-          designed for production operators who need a calm, accurate picture of
-          delivery health.
-        </p>
+        <h2 className="text-2xl font-semibold">Why GitOps Insights</h2>
+        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          {reasons.map((reason) => (
+            <div
+              key={reason.title}
+              className="rounded-xl border border-white/8 bg-white/[0.02] p-5"
+            >
+              <h3 className="text-sm font-medium text-zinc-100">{reason.title}</h3>
+              <p className="mt-2 text-sm text-zinc-400">{reason.body}</p>
+            </div>
+          ))}
+        </div>
       </section>
 
       <section id="pricing" className="mx-auto max-w-6xl px-6 py-12">
