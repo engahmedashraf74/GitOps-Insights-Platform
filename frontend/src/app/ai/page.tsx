@@ -2,6 +2,7 @@
 
 import { DeploymentIntelligencePanel } from "@/components/ai/deployment-intelligence-panel";
 import { DeploymentTimeline } from "@/components/deployments/deployment-table";
+import { EventExplorer } from "@/components/events/event-explorer";
 import { UpgradeBadge } from "@/components/billing/plan-badges";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
@@ -12,8 +13,9 @@ import {
   type DeploymentAnalysis,
 } from "@/services/billing";
 import { ApiError } from "@/services/api";
+import { getApplicationEvents } from "@/services/applications";
 import { getDeployments } from "@/services/deployments";
-import type { Deployment } from "@/types";
+import type { ApplicationEvent, Deployment } from "@/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -24,6 +26,7 @@ export default function AiAnalysisPage() {
   const [applicationId, setApplicationId] = useState<number | null>(null);
   const [result, setResult] = useState<DeploymentAnalysis | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
+  const [events, setEvents] = useState<ApplicationEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -73,6 +76,21 @@ export default function AiAnalysisPage() {
     };
   }, [applicationId, isPro, ready]);
 
+  useEffect(() => {
+    if (!ready || !isPro || applicationId == null) return;
+    let cancelled = false;
+    void getApplicationEvents(applicationId)
+      .then((rows) => {
+        if (!cancelled) setEvents(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, isPro, ready]);
+
   if (!ready) return null;
 
   return (
@@ -115,6 +133,12 @@ export default function AiAnalysisPage() {
               ) : (
                 <DeploymentTimeline rows={deployments} />
               )}
+            </section>
+          ) : null}
+          {applicationId != null ? (
+            <section className="rounded-xl border border-white/8 p-5">
+              <h2 className="mb-4 text-sm font-medium">Event explorer</h2>
+              <EventExplorer rows={events} />
             </section>
           ) : null}
           {!loading && !error && !result && applications.length === 0 ? (

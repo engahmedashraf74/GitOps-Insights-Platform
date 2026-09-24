@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import type { Application, ApplicationRepository } from "@/types";
+import type { Application, ApplicationEvent, ApplicationRepository } from "@/types";
 
 export interface ArgoSyncResult {
   connected: boolean;
@@ -20,6 +20,12 @@ export async function getApplications(
 
 export async function syncApplications(): Promise<ArgoSyncResult> {
   return apiFetch<ArgoSyncResult>("/applications/sync", { method: "POST" });
+}
+
+export async function getApplicationEvents(
+  id: number,
+): Promise<ApplicationEvent[]> {
+  return apiFetch<ApplicationEvent[]>(`/applications/${id}/events`);
 }
 
 export async function getApplicationRepository(

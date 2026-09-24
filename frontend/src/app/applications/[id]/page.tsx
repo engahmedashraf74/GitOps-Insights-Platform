@@ -13,11 +13,17 @@ import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { formatRelative, percentLabel, toNumber } from "@/lib/format";
 import { buildActivitySeries } from "@/lib/metrics";
-import { getApplicationRepository, syncApplications } from "@/services/applications";
+import { EventExplorer } from "@/components/events/event-explorer";
+import {
+  getApplicationEvents,
+  getApplicationRepository,
+  syncApplications,
+} from "@/services/applications";
 import { getOverview } from "@/services/dashboard";
 import { AiDeploymentAnalysisCard } from "@/components/applications/ai-deployment-analysis-card";
 import { getEnvironments } from "@/services/environments";
 import type {
+  ApplicationEvent,
   ApplicationOverview,
   ApplicationRepository,
   Environment,
@@ -47,6 +53,7 @@ export default function ApplicationDetailsPage({
   const [overview, setOverview] = useState<ApplicationOverview | null>(null);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [repository, setRepository] = useState<ApplicationRepository | null>(null);
+  const [events, setEvents] = useState<ApplicationEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -96,6 +103,21 @@ export default function ApplicationDetailsPage({
     if (!ready || Number.isNaN(applicationId)) return;
     void load();
   }, [ready, applicationId, load]);
+
+  useEffect(() => {
+    if (!ready || tab !== "Events" || Number.isNaN(applicationId)) return;
+    let cancelled = false;
+    void getApplicationEvents(applicationId)
+      .then((rows) => {
+        if (!cancelled) setEvents(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId, ready, tab]);
 
   const timeline = overview?.timeline ?? [];
   const envNames = Array.from(
@@ -359,10 +381,10 @@ export default function ApplicationDetailsPage({
       ) : null}
 
       {tab === "Events" ? (
-        <EmptyState
-          title="Events stream not available"
-          description="Application events will appear here when Argo CD events are persisted."
-        />
+        <section className="rounded-xl border border-white/8 p-5">
+          <h2 className="mb-4 text-sm font-medium">Event explorer</h2>
+          <EventExplorer rows={events} />
+        </section>
       ) : null}
     </div>
   );

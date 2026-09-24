@@ -59,6 +59,16 @@ export interface ApplicationRepository {
   cluster?: string | null;
 }
 
+export interface ApplicationEvent {
+  id: number;
+  type: string;
+  message: string;
+  source?: string | null;
+  metadata?: unknown;
+  createdAt: string;
+  applicationId: number;
+}
+
 export interface Environment {
   id: number;
   name: string;
