@@ -162,7 +162,7 @@ function mapHistory(
   healthStatus: string,
 ): MappedArgoHistory[] {
   if (!Array.isArray(value)) return [];
-  return value
+  const rows = value
     .map((entry) => {
       const item = asRecord(entry);
       if (!item) return null;
@@ -174,14 +174,21 @@ function mapHistory(
         revision,
         deployedAt,
         startedAt: parseDate(item.deployStartedAt),
-        status: healthStatus.toLowerCase() === 'degraded' ? 'Failed' : 'Succeeded',
-        syncStatus,
-        healthStatus,
         environment: namespace || 'default',
-      } satisfies MappedArgoHistory;
+      };
     })
-    .filter((item): item is MappedArgoHistory => item !== null)
+    .filter((item): item is NonNullable<typeof item> => item !== null)
     .sort((a, b) => b.deployedAt.getTime() - a.deployedAt.getTime());
+
+  return rows.map((entry, index) => {
+    const current = index === 0;
+    return {
+      ...entry,
+      status: current && healthStatus.toLowerCase() === 'degraded' ? 'Failed' : 'Succeeded',
+      syncStatus: current ? syncStatus : 'Unknown',
+      healthStatus: current ? healthStatus : 'Unknown',
+    } satisfies MappedArgoHistory;
+  });
 }
 
 function firstSource(spec?: Record<string, unknown>) {

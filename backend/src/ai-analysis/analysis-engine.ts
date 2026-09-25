@@ -65,43 +65,79 @@ function matchFinding(
   syncNorm: string,
   corpus: string,
 ): Pick<DeploymentAnalysis, 'rootCause' | 'recommendedFix' | 'confidence'> {
-  if (healthNorm === 'degraded' && corpus.includes('imagepullbackoff')) {
+  if (corpus.includes('imagepullbackoff')) {
     return {
       rootCause: 'Container image cannot be pulled.',
-      recommendedFix: 'Verify image exists and imagePullSecrets are correct.',
+      recommendedFix: 'Verify the image name, tag, registry access, and imagePullSecrets.',
       confidence: 85,
     };
   }
 
-  if (healthNorm === 'degraded' && corpus.includes('crashloopbackoff')) {
+  if (corpus.includes('crashloopbackoff')) {
     return {
-      rootCause: 'Application crashes during startup.',
-      recommendedFix: 'Inspect container logs and startup configuration.',
+      rootCause: 'The container is crashing after start.',
+      recommendedFix: 'Inspect container logs, probes, and startup configuration.',
+      confidence: 85,
+    };
+  }
+
+  if (corpus.includes('progressdeadlineexceeded')) {
+    return {
+      rootCause: 'The workload did not become ready before its progress deadline.',
+      recommendedFix: 'Check the new pods, probes, and the Deployment progress deadline.',
+      confidence: 85,
+    };
+  }
+
+  if (corpus.includes('failedscheduling')) {
+    return {
+      rootCause: 'The pod could not be placed on a node.',
+      recommendedFix: 'Check CPU, memory, and node selectors.',
       confidence: 85,
     };
   }
 
   if (healthNorm === 'missing') {
     return {
-      rootCause: 'Application resource not found.',
-      recommendedFix: 'Verify repository path and destination namespace.',
+      rootCause: 'A declared resource is not in the cluster.',
+      recommendedFix: 'Verify the Git path and the destination namespace.',
       confidence: 90,
+    };
+  }
+
+  if (
+    corpus.includes('syncerror') ||
+    corpus.includes('comparisonerror') ||
+    (corpus.includes('sync') && (corpus.includes('fail') || corpus.includes('error')))
+  ) {
+    return {
+      rootCause: 'The last sync did not finish successfully.',
+      recommendedFix: 'Read the operation message and sync again after fixing the Git or cluster error.',
+      confidence: 80,
     };
   }
 
   if (syncNorm === 'outofsync') {
     return {
-      rootCause: 'Cluster state differs from Git state.',
-      recommendedFix: 'Run sync operation or review drift.',
+      rootCause: 'Cluster state differs from Git.',
+      recommendedFix: 'Review the diff, then sync.',
       confidence: 80,
     };
   }
 
-  if (corpus.includes('failedscheduling')) {
+  if (healthNorm === 'degraded') {
     return {
-      rootCause: 'Cluster lacks resources.',
-      recommendedFix: 'Add node capacity or reduce requests.',
-      confidence: 85,
+      rootCause: 'The application is unhealthy without a more specific error.',
+      recommendedFix: 'Open the resource health messages stored for this application.',
+      confidence: 70,
+    };
+  }
+
+  if (!healthNorm || healthNorm === 'unknown') {
+    return {
+      rootCause: 'Argo CD has not reported health.',
+      recommendedFix: 'Confirm the application exists in Argo CD and that a sync has completed.',
+      confidence: 55,
     };
   }
 
@@ -130,7 +166,8 @@ function scoreRisk(input: {
   if (
     input.corpus.includes('imagepullbackoff') ||
     input.corpus.includes('crashloopbackoff') ||
-    input.corpus.includes('failedscheduling')
+    input.corpus.includes('failedscheduling') ||
+    input.corpus.includes('progressdeadlineexceeded')
   ) {
     risk += 15;
   }

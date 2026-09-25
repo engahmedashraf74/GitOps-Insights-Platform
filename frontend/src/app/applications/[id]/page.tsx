@@ -1,8 +1,6 @@
 "use client";
 
-import { ChartCard } from "@/components/charts/chart-card";
-import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
-import { DeploymentTable, DeploymentTimeline } from "@/components/deployments/deployment-table";
+import { DeploymentTable } from "@/components/deployments/deployment-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -11,8 +9,7 @@ import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
-import { formatRelative, percentLabel, toNumber } from "@/lib/format";
-import { buildActivitySeries } from "@/lib/metrics";
+import { formatRelative } from "@/lib/format";
 import { EventExplorer } from "@/components/events/event-explorer";
 import {
   getApplicationEvents,
@@ -20,7 +17,6 @@ import {
   syncApplications,
 } from "@/services/applications";
 import { getOverview } from "@/services/dashboard";
-import { AiDeploymentAnalysisCard } from "@/components/applications/ai-deployment-analysis-card";
 import { getEnvironments } from "@/services/environments";
 import type {
   ApplicationEvent,
@@ -30,7 +26,7 @@ import type {
   TimeRange,
 } from "@/types";
 import { ApiError } from "@/services/api";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 
 const tabs = ["Overview", "Deployments", "Environments", "Repository", "Events"] as const;
 type Tab = (typeof tabs)[number];
@@ -43,7 +39,7 @@ export default function ApplicationDetailsPage({
   const { id } = use(params);
   const applicationId = Number(id);
   const ready = useAuthGuard();
-  const { applications, reload, snapshot } = useWorkspace(ready);
+  const { applications, reload } = useWorkspace(ready);
   const { push } = useToast();
   const application = applications.find((item) => item.id === applicationId);
   const [tab, setTab] = useState<Tab>("Overview");
@@ -138,11 +134,6 @@ export default function ApplicationDetailsPage({
     const inRange = !item.deployedAt || time >= rangeStart;
     return statusOk && envOk && inRange;
   });
-  const activity = useMemo(
-    () => buildActivitySeries(timeline, range),
-    [range, timeline],
-  );
-
   if (!ready) return null;
 
   async function onSync() {
@@ -224,35 +215,15 @@ export default function ApplicationDetailsPage({
                 )}
               />
             </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              <MetricCard label="Total deployments" value={overview.stats.totalDeployments} />
-              <MetricCard
-                label="Success rate"
-                value={`${percentLabel(toNumber(overview.stats.successRate))}`}
-              />
-              <MetricCard
-                label="Failure rate"
-                value={`${percentLabel(toNumber(overview.failureRate.failureRate))}`}
-              />
+            <div className="mt-6 rounded-xl border border-white/8 p-5 text-sm text-zinc-400">
+              <p>Repository: {repoUrl || "—"}</p>
+              <p className="mt-2">Namespace: {namespace || "—"}</p>
+              <p className="mt-2">Cluster: {cluster || "—"}</p>
+              <p className="mt-2">
+                Target revision: {repository?.branch || application?.branch || "—"}
+              </p>
+              <p className="mt-2">Path: {repository?.path || application?.path || "—"}</p>
             </div>
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              <div className="rounded-xl border border-white/8 p-5 text-sm text-zinc-400">
-                <p>Repository: {repoUrl || "—"}</p>
-                <p className="mt-2">Namespace: {namespace || "—"}</p>
-                <p className="mt-2">Cluster: {cluster || "—"}</p>
-                <p className="mt-2">
-                  Target revision: {repository?.branch || application?.branch || "—"}
-                </p>
-                <p className="mt-2">Path: {repository?.path || application?.path || "—"}</p>
-              </div>
-              <ChartCard title="Recent activity">
-                <DeploymentActivityChart data={activity} />
-              </ChartCard>
-            </div>
-            <AiDeploymentAnalysisCard
-              applicationId={applicationId}
-              isPro={Boolean(snapshot?.subscription?.isPro || snapshot?.subscription?.aiFeatures)}
-            />
           </>
         ) : (
           <EmptyState
@@ -307,15 +278,9 @@ export default function ApplicationDetailsPage({
               description="History is imported from Argo CD application revisions."
             />
           ) : (
-            <>
-              <div className="rounded-xl border border-white/8 p-5">
-                <DeploymentTable rows={filtered} />
-              </div>
-              <div className="rounded-xl border border-white/8 p-5">
-                <h2 className="mb-4 text-sm font-medium">Timeline</h2>
-                <DeploymentTimeline rows={filtered.slice(0, 12)} />
-              </div>
-            </>
+            <div className="rounded-xl border border-white/8 p-5">
+              <DeploymentTable rows={filtered} />
+            </div>
           )}
         </div>
       ) : null}

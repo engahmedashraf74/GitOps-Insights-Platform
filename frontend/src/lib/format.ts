@@ -13,7 +13,43 @@ export function formatDateTime(value?: string | Date | null): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: browserTimeZone(),
+    timeZoneName: "short",
   }).format(date);
+}
+
+export function formatLocalDate(value?: string | Date | null): string {
+  const date = parseTimestamp(value);
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: browserTimeZone(),
+  }).format(date);
+}
+
+export function formatLocalTime(value?: string | Date | null): string {
+  const date = parseTimestamp(value);
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: browserTimeZone(),
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function browserTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
+function parseTimestamp(value?: string | Date | null): Date | null {
+  if (!value) return null;
+  const date = typeof value === "string" ? new Date(value) : value;
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 export function formatRelative(value?: string | Date | null): string {

@@ -2,7 +2,6 @@
 
 import { ChartCard } from "@/components/charts/chart-card";
 import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
-import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
 import { DeploymentTable } from "@/components/deployments/deployment-table";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
@@ -13,8 +12,6 @@ import { MetricSkeleton } from "@/components/ui/skeleton";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
-import { buildSuccessFailureSeries } from "@/lib/analytics";
-import { percentLabel } from "@/lib/format";
 import { buildActivitySeries, isFailed, isSucceeded } from "@/lib/metrics";
 import type { TimeRange } from "@/types";
 import { Activity } from "lucide-react";
@@ -28,8 +25,6 @@ export default function DeploymentsPage() {
   const [status, setStatus] = useState("all");
 
   const deployments = snapshot?.deployments ?? [];
-  const succeeded = deployments.filter(isSucceeded).length;
-  const failed = deployments.filter(isFailed).length;
   const latest = [...deployments].sort(
     (a, b) =>
       new Date(b.deployedAt ?? 0).getTime() -
@@ -37,10 +32,6 @@ export default function DeploymentsPage() {
   )[0];
   const activity = useMemo(
     () => buildActivitySeries(deployments, range),
-    [deployments, range],
-  );
-  const successFailure = useMemo(
-    () => buildSuccessFailureSeries(deployments, range),
     [deployments, range],
   );
   const rows = deployments.filter((item) => {
@@ -72,18 +63,16 @@ export default function DeploymentsPage() {
       {error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {Array.from({ length: 2 }).map((_, index) => (
             <MetricSkeleton key={index} />
           ))}
         </div>
       ) : !connected ? (
         <ConnectArgoEmptyState />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <MetricCard label="History" value={deployments.length} hint="All recorded deployments" />
-          <MetricCard label="Successful" value={succeeded} hint="Healthy or succeeded" />
-          <MetricCard label="Failed" value={failed} hint="Failed or degraded" />
           <MetricCard
             label="Latest"
             value={latest?.revision?.slice(0, 8) || "—"}
@@ -94,7 +83,7 @@ export default function DeploymentsPage() {
 
       {connected && !error && !loading ? (
       <>
-      <div className="mt-6 grid gap-4 xl:grid-cols-2">
+      <div className="mt-6">
         <ChartCard
           title="Deployments over time"
           actions={
@@ -114,9 +103,6 @@ export default function DeploymentsPage() {
           }
         >
           <DeploymentActivityChart data={activity} />
-        </ChartCard>
-        <ChartCard title="Success vs failure">
-          <SuccessFailureChart data={successFailure} />
         </ChartCard>
       </div>
 
@@ -154,9 +140,6 @@ export default function DeploymentsPage() {
           />
         )}
       </div>
-      <p className="mt-3 text-xs text-zinc-500">
-        Success rate in this view is {percentLabel(deployments.length ? (succeeded / deployments.length) * 100 : 0)}.
-      </p>
       </>
       ) : null}
     </div>

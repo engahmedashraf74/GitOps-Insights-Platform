@@ -3,9 +3,6 @@
 import { ChartCard } from "@/components/charts/chart-card";
 import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
 import { EnvironmentChart } from "@/components/charts/environment-chart";
-import { HealthChart } from "@/components/charts/health-chart";
-import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
-import { DoraCards } from "@/components/metrics/dora-cards";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -15,18 +12,8 @@ import Link from "next/link";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
-import {
-  buildEnvironmentComparison,
-  buildSuccessFailureSeries,
-} from "@/lib/analytics";
-import { buildDoraMetrics } from "@/lib/dora";
-import { percentLabel } from "@/lib/format";
-import {
-  buildActivitySeries,
-  buildHealthBreakdown,
-  buildWorkspaceMetrics,
-  isFailed,
-} from "@/lib/metrics";
+import { buildEnvironmentComparison } from "@/lib/analytics";
+import { buildActivitySeries } from "@/lib/metrics";
 import type { TimeRange } from "@/types";
 import { useMemo, useState } from "react";
 
@@ -36,23 +23,10 @@ export default function AnalyticsPage() {
   const [range, setRange] = useState<TimeRange>("7d");
   const deployments = snapshot?.deployments ?? [];
   const connected = isArgoConnected(snapshot);
-  const metrics = useMemo(
-    () =>
-      snapshot
-        ? buildWorkspaceMetrics(snapshot)
-        : {
-            applications: 0,
-            deployments: 0,
-            healthyApplications: 0,
-            failedDeployments: 0,
-            successRate: 0,
-          },
-    [snapshot],
+  const volume = useMemo(
+    () => buildActivitySeries(deployments, snapshot?.subscription?.fullAnalytics ? range : "7d"),
+    [deployments, range, snapshot?.subscription?.fullAnalytics],
   );
-  const failureRate =
-    deployments.length === 0
-      ? 0
-      : (deployments.filter(isFailed).length / deployments.length) * 100;
 
   if (!ready) return null;
 
@@ -60,11 +34,7 @@ export default function AnalyticsPage() {
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Analytics"
-        description={
-          snapshot?.subscription?.fullAnalytics
-            ? "Delivery frequency, reliability, and environment comparison from GitOps history."
-            : "Free plan includes 7 days of history. Upgrade to Pro for full analytics."
-        }
+        description="Deployment volume and environment distribution from recorded history."
         actions={
           snapshot?.subscription?.fullAnalytics ? (
             <div className="flex gap-1">
@@ -93,7 +63,7 @@ export default function AnalyticsPage() {
           <Link href="/upgrade" className="text-teal-300">
             Upgrade to Pro
           </Link>{" "}
-          for full analytics and history.
+          for a longer history window.
         </p>
       ) : null}
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
@@ -101,70 +71,31 @@ export default function AnalyticsPage() {
         <ConnectArgoEmptyState />
       ) : null}
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <MetricSkeleton key={index} />
-          ))}
-        </div>
+        <MetricSkeleton />
       ) : connected ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Deployment frequency"
-            value={metrics.deployments}
-            hint="Total recorded deployments"
-          />
-          <MetricCard
-            label="Success rate"
-            value={percentLabel(metrics.successRate)}
-            hint="Derived from workspace history"
-          />
-          <MetricCard
-            label="Failure rate"
-            value={percentLabel(failureRate)}
-            hint="Failed or degraded outcomes"
-          />
-          <MetricCard
-            label="Healthy applications"
-            value={metrics.healthyApplications}
-            hint="Latest health snapshot"
-          />
-        </div>
+        <MetricCard
+          label="Deployment volume"
+          value={volume.reduce((sum, point) => sum + point.deployments, 0)}
+          hint="Recorded deployments in the selected window"
+        />
       ) : null}
 
       {connected && !error && !loading ? (
       <>
-      {snapshot?.subscription?.fullAnalytics ? (
-        <div className="mt-8">
-          <DoraCards metrics={buildDoraMetrics(deployments)} />
-        </div>
-      ) : (
-        <div className="mt-8 rounded-xl border border-teal-400/20 bg-teal-400/5 p-5 text-sm text-zinc-300">
-          Advanced analytics, DORA, and environment comparison are included with Pro.
-        </div>
-      )}
-
       <div className="mt-6 grid gap-4 xl:grid-cols-2">
-        <ChartCard title="Health trends">
-          <HealthChart data={buildHealthBreakdown(deployments)} />
-        </ChartCard>
-        <ChartCard title="Success vs failure">
-          <SuccessFailureChart data={buildSuccessFailureSeries(deployments, range)} />
-        </ChartCard>
-        <ChartCard title="Activity">
+        <ChartCard title="Deployment volume">
           {deployments.length === 0 ? (
             <EmptyState
               title="No analytics yet"
-              description="Charts populate from application deployment timestamps."
+              description="Volume appears after applications record deployments with timestamps."
             />
           ) : (
-            <DeploymentActivityChart data={buildActivitySeries(deployments, range)} />
+            <DeploymentActivityChart data={volume} />
           )}
         </ChartCard>
-        {snapshot?.subscription?.fullAnalytics ? (
-          <ChartCard title="Environment comparison">
-            <EnvironmentChart data={buildEnvironmentComparison(deployments)} />
-          </ChartCard>
-        ) : null}
+        <ChartCard title="Environment distribution">
+          <EnvironmentChart data={buildEnvironmentComparison(deployments)} />
+        </ChartCard>
       </div>
       </>
       ) : null}
