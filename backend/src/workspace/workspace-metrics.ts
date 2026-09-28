@@ -2,16 +2,43 @@ import type { Deployment } from '@prisma/client';
 import type { TimeRange } from '../common/dto/time-range.dto';
 import { rangeToDays } from '../common/dto/time-range.dto';
 
+export type DeploymentOutcome = 'success' | 'failed' | 'unknown';
+
+const FAILED_STATUSES = new Set([
+  'failed',
+  'failure',
+  'error',
+  'errored',
+  'degraded',
+]);
+
+const SUCCESS_STATUSES = new Set([
+  'succeeded',
+  'success',
+  'successful',
+  'healthy',
+  'synced',
+]);
+
+/**
+ * Single source of truth for deployment outcome. A row is never both
+ * successful and failed: degraded health and failure statuses win.
+ */
+export function classifyDeployment(deployment: Deployment): DeploymentOutcome {
+  const status = (deployment.status ?? '').trim().toLowerCase();
+  const health = (deployment.healthStatus ?? '').trim().toLowerCase();
+
+  if (health === 'degraded' || FAILED_STATUSES.has(status)) return 'failed';
+  if (SUCCESS_STATUSES.has(status) || health === 'healthy') return 'success';
+  return 'unknown';
+}
+
 export function isFailed(deployment: Deployment): boolean {
-  const status = deployment.status?.toLowerCase() ?? '';
-  const health = (deployment.healthStatus ?? '').toLowerCase();
-  return status.includes('fail') || health === 'degraded';
+  return classifyDeployment(deployment) === 'failed';
 }
 
 export function isSucceeded(deployment: Deployment): boolean {
-  const status = deployment.status?.toLowerCase() ?? '';
-  const health = (deployment.healthStatus ?? '').toLowerCase();
-  return status.includes('success') || status === 'succeeded' || health === 'healthy';
+  return classifyDeployment(deployment) === 'success';
 }
 
 export function startOfDay(date: Date): Date {

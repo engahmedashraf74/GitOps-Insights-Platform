@@ -108,7 +108,10 @@ function matchFinding(
   if (
     corpus.includes('syncerror') ||
     corpus.includes('comparisonerror') ||
-    (corpus.includes('sync') && (corpus.includes('fail') || corpus.includes('error')))
+    corpus.includes('syncfailed') ||
+    corpus.includes('sync failed') ||
+    corpus.includes('failed sync') ||
+    corpus.includes('sync error')
   ) {
     return {
       rootCause: 'The last sync did not finish successfully.',
