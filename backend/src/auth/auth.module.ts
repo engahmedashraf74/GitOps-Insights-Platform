@@ -8,7 +8,7 @@ import { PassportModule } from '@nestjs/passport';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
-import { JWT_SECRET } from './jwt.constants';
+import { getJwtSecret } from './jwt.constants';
 
 @Module({
   imports: [
@@ -17,12 +17,14 @@ import { JWT_SECRET } from './jwt.constants';
     PrismaModule,
     MailModule,
     PassportModule,
-    JwtModule.register({
-      secret: JWT_SECRET,
-      signOptions: {
-        expiresIn: '1h',
-        algorithm: 'HS256',
-      },
+    JwtModule.registerAsync({
+      useFactory: () => ({
+        secret: getJwtSecret(),
+        signOptions: {
+          expiresIn: '1h',
+          algorithm: 'HS256' as const,
+        },
+      }),
     }),
   ],
   providers: [AuthService, JwtStrategy],

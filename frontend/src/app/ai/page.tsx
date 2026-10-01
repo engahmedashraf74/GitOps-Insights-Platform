@@ -35,6 +35,8 @@ export default function AiAnalysisPage() {
   const [events, setEvents] = useState<ApplicationEvent[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [eventsError, setEventsError] = useState<string | null>(null);
   const [windowRange, setWindowRange] = useState<HistoryWindow>("30d");
   const [environment, setEnvironment] = useState("all");
 
@@ -74,10 +76,18 @@ export default function AiAnalysisPage() {
     let cancelled = false;
     void getDeployments(applicationId)
       .then((rows) => {
-        if (!cancelled) setDeployments(rows);
+        if (cancelled) return;
+        setDeployments(rows);
+        setDataError(null);
       })
-      .catch(() => {
-        if (!cancelled) setDeployments([]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setDeployments([]);
+        setDataError(
+          err instanceof Error
+            ? err.message
+            : "Deployment history could not be loaded.",
+        );
       });
     return () => {
       cancelled = true;
@@ -89,10 +99,16 @@ export default function AiAnalysisPage() {
     let cancelled = false;
     void getApplicationEvents(applicationId)
       .then((rows) => {
-        if (!cancelled) setEvents(rows);
+        if (cancelled) return;
+        setEvents(rows);
+        setEventsError(null);
       })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setEvents([]);
+        setEventsError(
+          err instanceof Error ? err.message : "Events could not be loaded.",
+        );
       });
     return () => {
       cancelled = true;
@@ -203,7 +219,9 @@ export default function AiAnalysisPage() {
           {applicationId != null ? (
             <section className="rounded-xl border border-white/8 p-5">
               <h2 className="mb-4 text-sm font-medium">Deployment history</h2>
-              {filtered.length === 0 ? (
+              {dataError ? (
+                <p className="text-sm text-rose-300">{dataError}</p>
+              ) : filtered.length === 0 ? (
                 <p className="text-sm text-zinc-500">No deployment history is stored for this filter.</p>
               ) : (
                 <DeploymentHistoryTable rows={filtered} />
@@ -213,7 +231,11 @@ export default function AiAnalysisPage() {
           {applicationId != null ? (
             <section className="rounded-xl border border-white/8 p-5">
               <h2 className="mb-4 text-sm font-medium">Event explorer</h2>
-              <EventExplorer rows={events} />
+              {eventsError ? (
+                <p className="text-sm text-rose-300">{eventsError}</p>
+              ) : (
+                <EventExplorer rows={events} />
+              )}
             </section>
           ) : null}
           {!loading && !error && !result && applications.length === 0 ? (

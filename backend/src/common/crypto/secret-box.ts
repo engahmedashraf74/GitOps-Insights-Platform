@@ -1,13 +1,21 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'crypto';
+import { requireSecret } from '../../auth/jwt.constants';
 
 const ALGORITHM = 'aes-256-gcm';
 
+/**
+ * Derives a 32-byte key from a dedicated secret. There is deliberately no
+ * fallback to JWT_SECRET or a literal default: a predictable key would make
+ * stored Argo CD tokens trivially decryptable.
+ */
 function encryptionKey(): Buffer {
-  const secret =
-    process.env.INTEGRATION_ENCRYPTION_KEY ||
-    process.env.JWT_SECRET ||
-    'my-secret-key';
-  return Buffer.from(secret.padEnd(32, '0').slice(0, 32), 'utf8');
+  const secret = requireSecret('INTEGRATION_ENCRYPTION_KEY');
+  return createHash('sha256').update(secret, 'utf8').digest();
 }
 
 export function encryptSecret(value: string): string {

@@ -24,7 +24,11 @@ export function DeploymentIntelligencePanel({
     <div className="space-y-6">
       {stats ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <MetricCard label="Total deployments" value={stats.deploymentCount} />
+          <MetricCard
+            label="Total deployments"
+            value={stats.deploymentCount}
+            hint="Argo CD retained revision history"
+          />
           <MetricCard
             label="Successful deployments"
             value={stats.successfulDeployments}

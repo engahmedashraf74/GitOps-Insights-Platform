@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Organization } from '@prisma/client';
 
@@ -52,5 +52,32 @@ export class OrganizationsService {
       select: { id: true },
     });
     return projects.map((project) => project.id);
+  }
+
+  /**
+   * Resolves an application the caller is allowed to reach. Throws NotFound
+   * rather than Forbidden so callers cannot probe for ids in other tenants.
+   */
+  async assertApplicationAccess(
+    userId: number,
+    applicationId: number,
+  ): Promise<number> {
+    const projectIds = await this.getAccessibleProjectIds(userId);
+    const application = await this.prisma.application.findFirst({
+      where: { id: applicationId, projectId: { in: projectIds } },
+      select: { id: true },
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+    return application.id;
+  }
+
+  async assertProjectAccess(userId: number, projectId: number): Promise<number> {
+    const projectIds = await this.getAccessibleProjectIds(userId);
+    if (!projectIds.includes(projectId)) {
+      throw new NotFoundException('Project not found');
+    }
+    return projectId;
   }
 }

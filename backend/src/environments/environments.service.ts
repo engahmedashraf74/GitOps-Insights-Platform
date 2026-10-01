@@ -1,14 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 @Injectable()
 export class EnvironmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly organizations: OrganizationsService,
+  ) {}
 
-  create(
-    name: string,
-    applicationId: number,
-  ) {
+  async create(userId: number, name: string, applicationId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     return this.prisma.environment.create({
       data: {
         name,
@@ -17,7 +19,8 @@ export class EnvironmentsService {
     });
   }
 
-  findAll(applicationId: number) {
+  async findAll(userId: number, applicationId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     return this.prisma.environment.findMany({
       where: {
         applicationId,
@@ -25,7 +28,18 @@ export class EnvironmentsService {
     });
   }
 
-  delete(id: number) {
+  async delete(userId: number, id: number) {
+    const environment = await this.prisma.environment.findUnique({
+      where: { id },
+      select: { id: true, applicationId: true },
+    });
+    if (!environment) {
+      throw new NotFoundException('Environment not found');
+    }
+    await this.organizations.assertApplicationAccess(
+      userId,
+      environment.applicationId,
+    );
     return this.prisma.environment.delete({
       where: {
         id,

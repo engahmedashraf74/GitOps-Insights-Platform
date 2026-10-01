@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { ArgocdService } from '../argocd/argocd.service';
+import { assertSafeArgoUrl } from '../argocd/argo-url';
 import { encryptSecret, decryptSecret } from '../common/crypto/secret-box';
 import type { JwtUser } from '../common/types/jwt-user';
 import { IntegrationProvider, IntegrationStatus } from '@prisma/client';
@@ -81,7 +82,8 @@ export class IntegrationsService {
 
   async test(user: JwtUser, url: string, token: string) {
     await this.organizations.ensureForUser(user.userId);
-    const result = await this.argocd.testConnection(url, token);
+    const safeUrl = assertSafeArgoUrl(url);
+    const result = await this.argocd.testConnection(safeUrl, token);
     if (!result.ok) {
       throw new BadRequestException(
         `Argo CD rejected the credentials (HTTP ${result.status}).`,
@@ -92,7 +94,8 @@ export class IntegrationsService {
 
   async connect(user: JwtUser, url: string, token: string) {
     const organization = await this.organizations.ensureForUser(user.userId);
-    const result = await this.argocd.testConnection(url, token);
+    const safeUrl = assertSafeArgoUrl(url);
+    const result = await this.argocd.testConnection(safeUrl, token);
     if (!result.ok) {
       throw new BadRequestException(
         `Unable to connect to Argo CD (HTTP ${result.status}).`,
@@ -107,14 +110,14 @@ export class IntegrationsService {
         },
       },
       update: {
-        url,
+        url: safeUrl,
         status: IntegrationStatus.connected,
         credentialsEncrypted: encryptSecret(token),
       },
       create: {
         organizationId: organization.id,
         provider: IntegrationProvider.argocd,
-        url,
+        url: safeUrl,
         status: IntegrationStatus.connected,
         credentialsEncrypted: encryptSecret(token),
       },
@@ -158,9 +161,11 @@ export class IntegrationsService {
         token: decryptSecret(record.credentialsEncrypted),
       };
     } catch {
-      const fallback = this.argocd.fallbackConnection();
-      if (fallback) return fallback;
-      throw new NotFoundException('Stored Argo CD credentials could not be decrypted.');
+      // Never substitute the shared environment credential. A decrypt failure
+      // means this organization's token was encrypted with a different key.
+      throw new NotFoundException(
+        'Stored Argo CD credentials could not be decrypted. Reconnect Argo CD from Integrations.',
+      );
     }
   }
 }

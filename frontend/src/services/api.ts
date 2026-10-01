@@ -10,10 +10,18 @@ export class ApiError extends Error {
   }
 }
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://192.168.49.2:30000";
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000")
+).replace(/\/$/, "");
 
 export function getApiUrl(): string {
+  if (!API_URL) {
+    throw new ApiError(
+      "NEXT_PUBLIC_API_URL is not configured for this build.",
+      0,
+    );
+  }
   return API_URL;
 }
 
@@ -24,7 +32,7 @@ export async function apiFetch<T>(
   const token = getToken();
   const isAuthRoute = endpoint.startsWith("/auth/");
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  const response = await fetch(`${getApiUrl()}${endpoint}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",

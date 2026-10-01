@@ -16,7 +16,17 @@ export class DeploymentsService {
     private readonly organizations: OrganizationsService,
   ) {}
 
-  create(dto: CreateDeploymentDto) {
+  async create(userId: number, dto: CreateDeploymentDto) {
+    await this.organizations.assertApplicationAccess(userId, dto.applicationId);
+    if (dto.environmentId !== undefined) {
+      const environment = await this.prisma.environment.findFirst({
+        where: { id: dto.environmentId, applicationId: dto.applicationId },
+        select: { id: true },
+      });
+      if (!environment) {
+        throw new NotFoundException('Environment not found');
+      }
+    }
     return this.prisma.deployment.create({
       data: {
         revision: dto.revision,
@@ -31,9 +41,15 @@ export class DeploymentsService {
     });
   }
 
-  findAllByApplication(applicationId: number) {
+  async findAllByApplication(userId: number, applicationId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
+    const organization = await this.organizations.ensureForUser(userId);
+    const planSince = historySince(organization);
     return this.prisma.deployment.findMany({
-      where: { applicationId },
+      where: {
+        applicationId,
+        ...(planSince ? { deployedAt: { gte: planSince } } : {}),
+      },
       orderBy: { deployedAt: 'desc' },
     });
   }
@@ -85,11 +101,14 @@ export class DeploymentsService {
   }
 
   async findById(userId: number, id: number) {
+    const organization = await this.organizations.ensureForUser(userId);
     const projectIds = await this.organizations.getAccessibleProjectIds(userId);
+    const planSince = historySince(organization);
     const deployment = await this.prisma.deployment.findFirst({
       where: {
         id,
         application: { projectId: { in: projectIds } },
+        ...(planSince ? { deployedAt: { gte: planSince } } : {}),
       },
     });
     if (!deployment) {

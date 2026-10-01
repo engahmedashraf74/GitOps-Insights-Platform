@@ -6,8 +6,9 @@ import {
   type MappedArgoApplication,
   type MappedArgoProject,
 } from './argo-application';
+import { assertSafeArgoUrl } from './argo-url';
 
-process.env.NODE_TLS_REJECT_UNAUTHORIZED ??= '0';
+const REQUEST_TIMEOUT_MS = Number(process.env.ARGOCD_TIMEOUT_MS || 15000);
 
 export interface ArgoConnection {
   url: string;
@@ -30,19 +31,22 @@ export class ArgocdService {
       return undefined;
     }
     this.logger.log('[argocd] using development env fallback credentials');
-    return { url, token };
+    return { url: assertSafeArgoUrl(url), token };
   }
 
   private devFallbackEnabled(): boolean {
-    if (process.env.ARGOCD_ENV_FALLBACK === 'true') return true;
-    if (process.env.ARGOCD_ENV_FALLBACK === 'false') return false;
-    return process.env.NODE_ENV !== 'production';
+    // Fail closed in production: a shared env-level Argo CD would otherwise be
+    // imported into every organization.
+    if (process.env.NODE_ENV === 'production') {
+      return process.env.ARGOCD_ENV_FALLBACK === 'true';
+    }
+    return process.env.ARGOCD_ENV_FALLBACK !== 'false';
   }
 
   resolveConnection(connection?: ArgoConnection): ArgoConnection | undefined {
     if (connection?.url && connection.token && !PLACEHOLDER_TOKENS.has(connection.token)) {
       return {
-        url: connection.url.replace(/\/$/, ''),
+        url: assertSafeArgoUrl(connection.url),
         token: connection.token,
       };
     }
@@ -89,9 +93,19 @@ export class ArgocdService {
     url: string,
     token: string,
   ): Promise<{ ok: boolean; status: number; error?: string }> {
+    let safeUrl: string;
+    try {
+      safeUrl = assertSafeArgoUrl(url);
+    } catch (error) {
+      return {
+        ok: false,
+        status: 0,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
     try {
       const response = await this.rawRequest(
-        `${url.replace(/\/$/, '')}/api/v1/applications?limit=1`,
+        `${safeUrl}/api/v1/applications?limit=1`,
         token,
       );
       if (!response.ok) {
@@ -134,15 +148,32 @@ export class ArgocdService {
     if (!body) {
       return {} as T;
     }
-    return JSON.parse(body) as T;
+    try {
+      return JSON.parse(body) as T;
+    } catch {
+      throw new BadRequestException(
+        `Argo CD returned a response for ${path} that is not valid JSON.`,
+      );
+    }
   }
 
   private async rawRequest(url: string, token: string) {
-    return fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Cookie: `argocd.token=${token}`,
-      },
-    });
+    try {
+      return await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Cookie: `argocd.token=${token}`,
+        },
+        redirect: 'error',
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        throw new BadRequestException(
+          `Argo CD did not respond within ${REQUEST_TIMEOUT_MS}ms.`,
+        );
+      }
+      throw error;
+    }
   }
 }

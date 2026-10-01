@@ -101,7 +101,7 @@ export default function LandingPage() {
         <div className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4 shadow-2xl">
           <div className="mb-4 flex items-center justify-between text-xs text-zinc-500">
             <span>Overview</span>
-            <span>Live preview</span>
+            <span>Sample data</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {["Apps", "Deploys", "Success"].map((label, index) => (
@@ -156,7 +156,7 @@ export default function LandingPage() {
         <h2 className="text-2xl font-semibold">Product</h2>
         <p className="mt-3 max-w-3xl text-sm text-zinc-400">
           The same surfaces operators use after sign-in: application health,
-          deployment history, and sync status.
+          deployment history, and sync status. Shown here with sample data.
         </p>
         <div className="mt-6 grid gap-4 lg:grid-cols-3">
           <article className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4">

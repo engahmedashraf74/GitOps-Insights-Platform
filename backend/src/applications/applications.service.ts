@@ -10,7 +10,7 @@ import { ArgocdSyncService } from '../argocd/argocd-sync.service';
 import { IntegrationsService } from '../integrations/integrations.service';
 import { isFailed, isSucceeded } from '../workspace/workspace-metrics';
 import { mapArgoApplication } from '../argocd/argo-application';
-import { maxApplications } from '../billing/plan';
+import { historySince, maxApplications } from '../billing/plan';
 
 @Injectable()
 export class ApplicationsService {
@@ -44,12 +44,16 @@ export class ApplicationsService {
     return cap >= 0 ? applications.slice(0, cap) : applications;
   }
 
-  findAllByProject(projectId: number) {
-    return this.prisma.application.findMany({
+  async findAllByProject(userId: number, projectId: number) {
+    await this.organizations.assertProjectAccess(userId, projectId);
+    const organization = await this.organizations.ensureForUser(userId);
+    const applications = await this.prisma.application.findMany({
       where: { projectId },
       include: { project: true },
       orderBy: { name: 'asc' },
     });
+    const cap = maxApplications(organization);
+    return cap >= 0 ? applications.slice(0, cap) : applications;
   }
 
   async findById(userId: number, id: number) {
@@ -88,8 +92,13 @@ export class ApplicationsService {
 
   async getOverview(userId: number, id: number) {
     const application = await this.findById(userId, id);
+    const organization = await this.organizations.ensureForUser(userId);
+    const planSince = historySince(organization);
     const deployments = await this.prisma.deployment.findMany({
-      where: { applicationId: id },
+      where: {
+        applicationId: id,
+        ...(planSince ? { deployedAt: { gte: planSince } } : {}),
+      },
       orderBy: { deployedAt: 'desc' },
     });
 

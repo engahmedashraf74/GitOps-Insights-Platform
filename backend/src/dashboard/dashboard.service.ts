@@ -22,7 +22,8 @@ export class DashboardService {
     return since ? { deployedAt: { gte: since } } : {};
   }
 
-  async getStats(applicationId: number, userId?: number) {
+  async getStats(applicationId: number, userId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     const deployments = await this.prisma.deployment.findMany({
       where: { applicationId, ...(await this.historyFilter(userId)) },
     });
@@ -42,7 +43,8 @@ export class DashboardService {
     };
   }
 
-  async getTimeline(applicationId: number, userId?: number) {
+  async getTimeline(applicationId: number, userId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     return this.prisma.deployment.findMany({
       where: { applicationId, ...(await this.historyFilter(userId)) },
       orderBy: { deployedAt: 'desc' },
@@ -59,7 +61,8 @@ export class DashboardService {
     });
   }
 
-  async getFailureRate(applicationId: number, userId?: number) {
+  async getFailureRate(applicationId: number, userId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     const deployments = await this.prisma.deployment.findMany({
       where: { applicationId, ...(await this.historyFilter(userId)) },
     });
@@ -73,14 +76,15 @@ export class DashboardService {
     };
   }
 
-  async getDeploymentFrequency(applicationId: number, userId?: number) {
+  async getDeploymentFrequency(applicationId: number, userId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     const deployments = await this.prisma.deployment.count({
       where: { applicationId, ...(await this.historyFilter(userId)) },
     });
     return { deployments };
   }
 
-  async getArgoData(applicationName: string, userId?: number) {
+  private async getArgoData(applicationName: string, userId?: number) {
     const connection = userId
       ? await this.integrations.getArgoConnection(userId).catch(() => undefined)
       : undefined;
@@ -104,7 +108,8 @@ export class DashboardService {
     };
   }
 
-  async getOverview(applicationId: number, userId?: number) {
+  async getOverview(applicationId: number, userId: number) {
+    await this.organizations.assertApplicationAccess(userId, applicationId);
     const application = await this.prisma.application.findUnique({
       where: { id: applicationId },
     });

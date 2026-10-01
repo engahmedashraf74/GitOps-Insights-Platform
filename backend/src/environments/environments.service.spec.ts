@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { EnvironmentsService } from './environments.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 describe('EnvironmentsService', () => {
   let service: EnvironmentsService;
@@ -10,6 +11,7 @@ describe('EnvironmentsService', () => {
       providers: [
         EnvironmentsService,
         { provide: PrismaService, useValue: {} },
+        { provide: OrganizationsService, useValue: {} },
       ],
     }).compile();
 

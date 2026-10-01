@@ -1,7 +1,6 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
 import {
   UpdatePasswordDto,
   UpdatePreferencesDto,
@@ -47,21 +46,6 @@ export class UsersController {
       user.userId,
       body.currentPassword,
       body.newPassword,
-    );
-  }
-
-  @JwtAuth()
-  @Get()
-  findAll() {
-    return this.usersService.findAll();
-  }
-
-  @JwtAuth()
-  @Post()
-  create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(
-      createUserDto.email,
-      createUserDto.password,
     );
   }
 }

@@ -78,7 +78,10 @@ export class ApplicationsController {
   @ApiOperation({
     summary: 'List applications for an Argo CD project (legacy frontend contract)',
   })
-  findAllByProject(@Param('projectId', ParseIntPipe) projectId: number) {
-    return this.applicationsService.findAllByProject(projectId);
+  findAllByProject(
+    @CurrentUser() user: JwtUser,
+    @Param('projectId', ParseIntPipe) projectId: number,
+  ) {
+    return this.applicationsService.findAllByProject(user.userId, projectId);
   }
 }

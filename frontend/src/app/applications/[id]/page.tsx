@@ -50,6 +50,8 @@ export default function ApplicationDetailsPage({
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [repository, setRepository] = useState<ApplicationRepository | null>(null);
   const [events, setEvents] = useState<ApplicationEvent[]>([]);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [partialError, setPartialError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -75,15 +77,32 @@ export default function ApplicationDetailsPage({
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setPartialError(null);
     try {
-      const [overviewData, environmentData, repositoryData] = await Promise.all([
-        getOverview(applicationId),
-        getEnvironments(applicationId).catch(() => []),
-        getApplicationRepository(applicationId).catch(() => null),
-      ]);
+      const [overviewData, environmentResult, repositoryResult] =
+        await Promise.all([
+          getOverview(applicationId),
+          getEnvironments(applicationId).then(
+            (value) => ({ ok: true as const, value }),
+            () => ({ ok: false as const, value: [] as Environment[] }),
+          ),
+          getApplicationRepository(applicationId).then(
+            (value) => ({ ok: true as const, value }),
+            () => ({ ok: false as const, value: null }),
+          ),
+        ]);
       setOverview(overviewData);
-      setEnvironments(environmentData);
-      setRepository(repositoryData);
+      setEnvironments(environmentResult.value);
+      setRepository(repositoryResult.value);
+      const failed = [
+        environmentResult.ok ? null : "environments",
+        repositoryResult.ok ? null : "repository",
+      ].filter((item): item is string => item !== null);
+      setPartialError(
+        failed.length > 0
+          ? `Could not load ${failed.join(" and ")} for this application.`
+          : null,
+      );
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -105,10 +124,16 @@ export default function ApplicationDetailsPage({
     let cancelled = false;
     void getApplicationEvents(applicationId)
       .then((rows) => {
-        if (!cancelled) setEvents(rows);
+        if (cancelled) return;
+        setEvents(rows);
+        setEventsError(null);
       })
-      .catch(() => {
-        if (!cancelled) setEvents([]);
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setEvents([]);
+        setEventsError(
+          err instanceof Error ? err.message : "Events could not be loaded.",
+        );
       });
     return () => {
       cancelled = true;
@@ -194,6 +219,11 @@ export default function ApplicationDetailsPage({
       </div>
 
       {error ? <ErrorState message={error} onRetry={() => void load()} /> : null}
+      {partialError ? (
+        <p className="mb-4 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-sm text-amber-200">
+          {partialError}
+        </p>
+      ) : null}
 
       {tab === "Overview" ? (
         loading ? (
@@ -348,7 +378,11 @@ export default function ApplicationDetailsPage({
       {tab === "Events" ? (
         <section className="rounded-xl border border-white/8 p-5">
           <h2 className="mb-4 text-sm font-medium">Event explorer</h2>
-          <EventExplorer rows={events} />
+          {eventsError ? (
+            <ErrorState message={eventsError} />
+          ) : (
+            <EventExplorer rows={events} />
+          )}
         </section>
       ) : null}
     </div>

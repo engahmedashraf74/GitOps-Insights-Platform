@@ -88,13 +88,6 @@ export async function analyzeDeployment(
   );
 }
 
-export async function activateStubPro() {
-  return apiFetch("/billing/stub/activate-pro", {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
-}
-
 export function isProSubscription(subscription: Pick<SubscriptionState, "isPro" | "plan" | "status">) {
   if (typeof subscription.isPro === "boolean") {
     return subscription.isPro;

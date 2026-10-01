@@ -10,6 +10,7 @@ import { OrganizationsService } from '../organizations/organizations.service';
 import { entitlementsFor, FREE_MAX_APPLICATIONS, isProPlan } from './plan';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import Stripe from 'stripe';
+import { appBaseUrl } from '../common/config/production-config';
 
 @Injectable()
 export class BillingService {
@@ -236,19 +237,6 @@ export class BillingService {
     return organization;
   }
 
-  async markStubUpgrade(userId: number) {
-    const expires = new Date();
-    expires.setFullYear(expires.getFullYear() + 1);
-    await this.applySubscriptionState({
-      userId,
-      subscriptionPlan: 'pro',
-      subscriptionStatus: 'active',
-      expiresAt: expires,
-      cancelAtPeriodEnd: false,
-    });
-    return this.getSubscription(userId);
-  }
-
   private async onCheckoutCompleted(session: Stripe.Checkout.Session) {
     const userId = await this.resolveUserId({
       userId: session.client_reference_id ?? session.metadata?.userId,
@@ -262,19 +250,46 @@ export class BillingService {
       return;
     }
 
-    let expiresAt: Date | null = null;
-    let status = 'active';
+    // Fail closed: only an explicitly paid session may grant Pro.
+    const paymentStatus = session.payment_status;
+    if (paymentStatus !== 'paid' && paymentStatus !== 'no_payment_required') {
+      this.logger.warn(
+        `checkout.session.completed ignored for user ${userId}: payment_status=${paymentStatus}`,
+      );
+      return;
+    }
+
     const subId = subscriptionId(session.subscription);
-    if (subId && this.stripe) {
-      try {
-        const subscription = await this.stripe.subscriptions.retrieve(subId);
-        expiresAt = periodEnd(subscription);
-        status = mapStripeStatus(subscription.status);
-      } catch (error) {
-        this.logger.warn(
-          `Could not retrieve subscription ${subId} after checkout: ${String(error)}`,
-        );
-      }
+    if (!subId) {
+      this.logger.warn(
+        `checkout.session.completed for user ${userId} has no subscription id; waiting for customer.subscription.* events.`,
+      );
+      return;
+    }
+    if (!this.stripe) {
+      this.logger.error(
+        'Stripe client unavailable while handling checkout.session.completed.',
+      );
+      return;
+    }
+
+    let subscription: Stripe.Subscription;
+    try {
+      subscription = await this.stripe.subscriptions.retrieve(subId);
+    } catch (error) {
+      // Do not grant Pro on an unverifiable subscription; the
+      // customer.subscription.* webhooks will reconcile the state.
+      this.logger.error(
+        `Could not retrieve subscription ${subId} after checkout; Pro not granted: ${String(error)}`,
+      );
+      return;
+    }
+
+    if (!isEntitledStatus(subscription.status)) {
+      this.logger.warn(
+        `checkout.session.completed for user ${userId} has non-entitled status ${subscription.status}; Pro not granted.`,
+      );
+      return;
     }
 
     await this.applySubscriptionState({
@@ -282,9 +297,9 @@ export class BillingService {
       stripeCustomerId: customerId(session.customer),
       stripeSubscriptionId: subId,
       subscriptionPlan: 'pro',
-      subscriptionStatus: status,
-      expiresAt,
-      cancelAtPeriodEnd: false,
+      subscriptionStatus: mapStripeStatus(subscription.status),
+      expiresAt: periodEnd(subscription),
+      cancelAtPeriodEnd: subscription.cancel_at_period_end ?? false,
     });
   }
 
@@ -438,11 +453,7 @@ export class BillingService {
   }
 
   private frontendUrl(): string {
-    return (
-      process.env.FRONTEND_URL ||
-      process.env.APP_URL ||
-      'http://localhost:3001'
-    ).replace(/\/$/, '');
+    return appBaseUrl();
   }
 
   private requireStripe(): Stripe {

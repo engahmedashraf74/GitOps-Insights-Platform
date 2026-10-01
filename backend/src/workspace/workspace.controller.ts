@@ -35,11 +35,13 @@ export class WorkspaceController {
     @Body() body: UpdateWorkspaceDto,
   ) {
     const organization = await this.organizations.ensureForUser(user.userId);
-    if (!body.name) return organization;
-    return this.prisma.organization.update({
-      where: { id: organization.id },
-      data: { name: body.name },
-    });
+    const updated = body.name
+      ? await this.prisma.organization.update({
+          where: { id: organization.id },
+          data: { name: body.name },
+        })
+      : organization;
+    return { id: updated.id, name: updated.name, slug: updated.slug };
   }
 
   @Get('snapshot')

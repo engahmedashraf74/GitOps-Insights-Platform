@@ -23,6 +23,7 @@ export interface ArgoSyncResult {
 @Injectable()
 export class ArgocdSyncService {
   private readonly logger = new Logger(ArgocdSyncService.name);
+  private readonly running = new Map<number, Promise<ArgoSyncResult>>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -213,6 +214,35 @@ export class ArgocdSyncService {
     userId: number,
     connection: ArgoConnection,
     source: 'integration' | 'env' = 'integration',
+  ): Promise<ArgoSyncResult> {
+    // The cron, manual sync, connect and startup paths can all fire at once.
+    // Serialise per organization so concurrent runs cannot interleave the
+    // delete/recreate history replacement.
+    const inFlight = this.running.get(organizationId);
+    if (inFlight) {
+      this.logger.log(
+        `[argocd-sync] join in-flight sync org=${organizationId} source=${source}`,
+      );
+      return inFlight;
+    }
+
+    const run = this.runSyncOrganization(
+      organizationId,
+      userId,
+      connection,
+      source,
+    ).finally(() => {
+      this.running.delete(organizationId);
+    });
+    this.running.set(organizationId, run);
+    return run;
+  }
+
+  private async runSyncOrganization(
+    organizationId: number,
+    userId: number,
+    connection: ArgoConnection,
+    source: 'integration' | 'env',
   ): Promise<ArgoSyncResult> {
     const started = Date.now();
     this.logger.log(
@@ -500,38 +530,48 @@ export class ArgocdSyncService {
             ]
           : [];
 
-    await this.prisma.deployment.deleteMany({ where: { applicationId } });
-    if (!history.length) return;
-
-    await this.prisma.deployment.createMany({
-      data: history.map((entry) => ({
-        applicationId,
-        revision: entry.revision,
-        status: entry.status,
-        syncStatus: entry.syncStatus,
-        healthStatus: entry.healthStatus,
-        environment: entry.environment,
-        deployedAt: entry.deployedAt,
-        startedAt: entry.startedAt,
-        finishedAt: entry.deployedAt,
-        commitSha: entry.revision,
-      })),
-    });
+    // Atomic so a failure can never leave an application with no history.
+    await this.prisma.$transaction([
+      this.prisma.deployment.deleteMany({ where: { applicationId } }),
+      ...(history.length
+        ? [
+            this.prisma.deployment.createMany({
+              data: history.map((entry) => ({
+                applicationId,
+                revision: entry.revision,
+                status: entry.status,
+                syncStatus: entry.syncStatus,
+                healthStatus: entry.healthStatus,
+                environment: entry.environment,
+                deployedAt: entry.deployedAt,
+                startedAt: entry.startedAt,
+                finishedAt: entry.deployedAt,
+                commitSha: entry.revision,
+              })),
+            }),
+          ]
+        : []),
+    ]);
   }
 
   private async replaceObservedEvents(
     applicationId: number,
     item: MappedArgoApplication,
   ) {
-    await this.prisma.applicationEvent.deleteMany({ where: { applicationId } });
-    if (!item.signals.length) return;
-    await this.prisma.applicationEvent.createMany({
-      data: item.signals.map((signal) => ({
-        applicationId,
-        type: signal.type,
-        message: signal.message,
-      })),
-    });
+    await this.prisma.$transaction([
+      this.prisma.applicationEvent.deleteMany({ where: { applicationId } }),
+      ...(item.signals.length
+        ? [
+            this.prisma.applicationEvent.createMany({
+              data: item.signals.map((signal) => ({
+                applicationId,
+                type: signal.type,
+                message: signal.message,
+              })),
+            }),
+          ]
+        : []),
+    ]);
   }
 
   private async ensureEnvironment(applicationId: number, name: string | null) {

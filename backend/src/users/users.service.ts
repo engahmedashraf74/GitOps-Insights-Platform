@@ -52,6 +52,7 @@ export class UsersService {
         username,
         emailVerified: false,
       },
+      select: publicUser,
     });
   }
 

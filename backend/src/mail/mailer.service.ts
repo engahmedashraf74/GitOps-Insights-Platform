@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import * as nodemailer from 'nodemailer';
@@ -46,17 +46,16 @@ export class MailerService {
       process.env.MAIL_FROM || 'GitOps Insights <noreply@gitopsinsights.com>';
 
     if (!host || !user || !pass) {
-      this.logger.warn(
-        `[mail] SMTP configuration missing. Email not sent to ${message.to}`,
+      throw new ServiceUnavailableException(
+        'Email delivery is not configured. Set SMTP_HOST, SMTP_USER, and SMTP_PASS.',
       );
-      return;
     }
 
     try {
       const transporter = nodemailer.createTransport({
         host,
         port,
-        secure: false,
+        secure: port === 465,
         auth: {
           user,
           pass,
@@ -71,13 +70,16 @@ export class MailerService {
         text: message.text,
       });
 
-      this.logger.log(
-        `[mail] Email sent successfully to ${message.to}`,
-      );
+      this.logger.log(`[mail] Email sent successfully to ${message.to}`);
     } catch (error) {
+      // Never log the SMTP credentials; only the failure reason.
       this.logger.error(
-        `[mail] Failed to send email to ${message.to}`,
-        error instanceof Error ? error.stack : String(error),
+        `[mail] Failed to send email to ${message.to}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      throw new ServiceUnavailableException(
+        'The verification email could not be sent. Please try again shortly.',
       );
     }
   }

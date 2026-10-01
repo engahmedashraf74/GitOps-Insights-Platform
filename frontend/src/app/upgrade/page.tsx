@@ -6,13 +6,12 @@ import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useToast } from "@/components/ui/toast";
-import { activateStubPro, createCheckout } from "@/services/billing";
-import { useRouter, useSearchParams } from "next/navigation";
+import { createCheckout } from "@/services/billing";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
 function UpgradeInner() {
   const ready = useAuthGuard();
-  const router = useRouter();
   const params = useSearchParams();
   const { push } = useToast();
   const [loading, setLoading] = useState(false);
@@ -32,23 +31,6 @@ function UpgradeInner() {
       push("Checkout session created.", "success");
     } catch (err) {
       push(err instanceof Error ? err.message : "Checkout failed.", "error");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function simulate() {
-    setLoading(true);
-    try {
-      const result = await activateStubPro();
-      if (result && typeof result === "object" && "ok" in result && result.ok === false) {
-        push("Stripe is not configured for production yet.", "info");
-        return;
-      }
-      push("Pro plan activated for this beta workspace.", "success");
-      router.replace("/billing");
-    } catch (err) {
-      push(err instanceof Error ? err.message : "Could not activate Pro.", "error");
     } finally {
       setLoading(false);
     }
@@ -84,9 +66,6 @@ function UpgradeInner() {
         <div className="mt-6 flex flex-wrap gap-2">
           <Button loading={loading} onClick={() => void startCheckout()}>
             Continue to checkout
-          </Button>
-          <Button variant="secondary" loading={loading} onClick={() => void simulate()}>
-            Activate Pro (beta stub)
           </Button>
         </div>
       </div>

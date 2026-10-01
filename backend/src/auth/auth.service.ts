@@ -12,6 +12,7 @@ import { randomBytes } from 'crypto';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mail/mailer.service';
+import { appBaseUrl } from '../common/config/production-config';
 
 @Injectable()
 export class AuthService {
@@ -40,11 +41,31 @@ export class AuthService {
 
     const user = await this.usersService.create(email, password, username);
     await this.organizations.ensureForUser(user.id);
-    await this.issueVerification(user.id, user.email);
+
+    try {
+      await this.issueVerification(user.id, user.email);
+    } catch (error) {
+      // The account exists and the token is stored, so the user can recover
+      // through "resend verification" instead of being silently stranded.
+      this.logger.error(
+        `Verification email failed for user ${user.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return {
+        ok: true,
+        requiresVerification: true,
+        emailDelivered: false,
+        email: user.email,
+        message:
+          'Your account was created, but the verification email could not be sent. Use "Resend verification email" or contact support.',
+      };
+    }
 
     return {
       ok: true,
       requiresVerification: true,
+      emailDelivered: true,
       email: user.email,
     };
   }
@@ -110,12 +131,19 @@ export class AuthService {
     await this.prisma.emailVerificationToken.create({
       data: { token, expiresAt, userId },
     });
-    const appUrl = (process.env.APP_URL || 'http://localhost:3001').replace(
-      /\/$/,
-      '',
-    );
-    const verifyUrl = `${appUrl}/verify-email?token=${token}`;
+    const verifyUrl = `${appBaseUrl()}/verify-email?token=${token}`;
     const message = this.mailer.renderVerifyEmail(email, verifyUrl);
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      !process.env.SMTP_HOST?.trim()
+    ) {
+      // Keeps local development usable without an SMTP server. Never runs in
+      // production, where missing SMTP is surfaced as an error instead.
+      this.logger.warn(
+        `[dev] SMTP not configured. Verification URL for ${email}: ${verifyUrl}`,
+      );
+      return;
+    }
     await this.mailer.send(message);
     this.logger.log(`Verification email issued for user ${userId}`);
   }

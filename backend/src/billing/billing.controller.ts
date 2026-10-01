@@ -49,20 +49,6 @@ export class BillingController {
     return this.billing.createPortalSession(user.userId);
   }
 
-  @Post('stub/activate-pro')
-  @ApiOperation({
-    summary: 'Development-only Pro activation when Stripe webhooks are unavailable',
-  })
-  activatePro(@CurrentUser() user: JwtUser) {
-    if (process.env.NODE_ENV === 'production') {
-      return {
-        ok: false,
-        message: 'Use Stripe Checkout in production.',
-      };
-    }
-    return this.billing.markStubUpgrade(user.userId);
-  }
-
   @Get('ai/status')
   @RequireProPlan()
   @ApiOperation({ summary: 'Pro-only AI Deployment Analysis status' })
