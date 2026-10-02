@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitops-ai-failure-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gitops-ai-failure-test
+  template:
+    metadata:
+      labels:
+        app: gitops-ai-failure-test
+    spec:
+      containers:
+        - name: failure-test
+          image: docker.io/library/nonexistent-gitops-ai-test:never-exists
+          imagePullPolicy: Always
