@@ -4,6 +4,7 @@ metadata:
   name: gitops-ai-failure-test
 spec:
   replicas: 1
+  progressDeadlineSeconds: 30
   selector:
     matchLabels:
       app: gitops-ai-failure-test
