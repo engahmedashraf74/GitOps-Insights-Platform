@@ -4,32 +4,23 @@ import { rangeToDays } from '../common/dto/time-range.dto';
 
 export type DeploymentOutcome = 'success' | 'failed' | 'unknown';
 
-const FAILED_STATUSES = new Set([
-  'failed',
-  'failure',
-  'error',
-  'errored',
-  'degraded',
-]);
+const FAILED_RESULTS = new Set(['failed', 'failure', 'error', 'errored']);
 
-const SUCCESS_STATUSES = new Set([
-  'succeeded',
-  'success',
-  'successful',
-  'healthy',
-  'synced',
-]);
+const SUCCESS_RESULTS = new Set(['succeeded', 'success', 'successful']);
 
 /**
- * Single source of truth for deployment outcome. A row is never both
- * successful and failed: degraded health and failure statuses win.
+ * Outcome comes from the stored Result. Health is used only when Result is
+ * absent, so a Succeeded revision is not also counted as failed because the
+ * current application is Degraded.
  */
 export function classifyDeployment(deployment: Deployment): DeploymentOutcome {
   const status = (deployment.status ?? '').trim().toLowerCase();
   const health = (deployment.healthStatus ?? '').trim().toLowerCase();
 
-  if (health === 'degraded' || FAILED_STATUSES.has(status)) return 'failed';
-  if (SUCCESS_STATUSES.has(status) || health === 'healthy') return 'success';
+  if (FAILED_RESULTS.has(status)) return 'failed';
+  if (SUCCESS_RESULTS.has(status)) return 'success';
+  if (health === 'degraded') return 'failed';
+  if (health === 'healthy') return 'success';
   return 'unknown';
 }
 

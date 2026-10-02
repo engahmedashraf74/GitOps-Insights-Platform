@@ -60,16 +60,16 @@ export function analyzeDeploymentSignals(input: {
   };
 }
 
-function matchFinding(
-  healthNorm: string,
-  syncNorm: string,
+function matchWorkload(
   corpus: string,
-): Pick<DeploymentAnalysis, 'rootCause' | 'recommendedFix' | 'confidence'> {
-  if (corpus.includes('imagepullbackoff')) {
+): Pick<DeploymentAnalysis, 'rootCause' | 'recommendedFix' | 'confidence'> | null {
+  if (imagePullFailure(corpus)) {
     return {
-      rootCause: 'Container image cannot be pulled.',
-      recommendedFix: 'Verify the image name, tag, registry access, and imagePullSecrets.',
-      confidence: 85,
+      rootCause:
+        'The container image could not be pulled. The image name or tag may be invalid, or the registry may be refusing access.',
+      recommendedFix:
+        'Verify the image name and tag, confirm the image exists in the registry, and check registry access or image pull credentials.',
+      confidence: imagePullEvidence(corpus),
     };
   }
 
@@ -97,6 +97,64 @@ function matchFinding(
     };
   }
 
+  return null;
+}
+
+function imagePullFailure(corpus: string): boolean {
+  return (
+    corpus.includes('imagepullbackoff') ||
+    corpus.includes('errimagepull') ||
+    corpus.includes('failed to pull image') ||
+    corpus.includes('failed to pull and unpack image') ||
+    corpus.includes('error pulling image') ||
+    corpus.includes('back-off pulling image') ||
+    corpus.includes('backoff pulling image')
+  );
+}
+
+/** More than one independent pull-error phrase is stronger evidence than one. */
+function imagePullEvidence(corpus: string): number {
+  const phrases = [
+    corpus.includes('imagepullbackoff'),
+    corpus.includes('errimagepull'),
+    corpus.includes('failed to pull image') ||
+      corpus.includes('failed to pull and unpack image') ||
+      corpus.includes('error pulling image') ||
+      corpus.includes('back-off pulling image') ||
+      corpus.includes('backoff pulling image'),
+  ].filter(Boolean).length;
+  return phrases > 1 ? 90 : 85;
+}
+
+function syncOperationFailed(syncNorm: string, corpus: string): boolean {
+  if (syncNorm === 'synced') return false;
+  return (
+    corpus.includes('syncerror') ||
+    corpus.includes('comparisonerror') ||
+    corpus.includes('syncfailed') ||
+    /\bsync failed\b/.test(corpus) ||
+    /\bfailed sync\b/.test(corpus) ||
+    corpus.includes('sync error')
+  );
+}
+
+function matchFinding(
+  healthNorm: string,
+  syncNorm: string,
+  corpus: string,
+): Pick<DeploymentAnalysis, 'rootCause' | 'recommendedFix' | 'confidence'> {
+  const syncSucceeded = syncNorm === 'synced';
+  const workload = matchWorkload(corpus);
+
+  if (workload && syncSucceeded) {
+    return {
+      rootCause: `The latest sync completed successfully, but the deployed workload is unhealthy. ${workload.rootCause}`,
+      recommendedFix: workload.recommendedFix,
+      confidence: workload.confidence,
+    };
+  }
+  if (workload) return workload;
+
   if (healthNorm === 'missing') {
     return {
       rootCause: 'A declared resource is not in the cluster.',
@@ -105,16 +163,9 @@ function matchFinding(
     };
   }
 
-  if (
-    corpus.includes('syncerror') ||
-    corpus.includes('comparisonerror') ||
-    corpus.includes('syncfailed') ||
-    corpus.includes('sync failed') ||
-    corpus.includes('failed sync') ||
-    corpus.includes('sync error')
-  ) {
+  if (!syncSucceeded && syncOperationFailed(syncNorm, corpus)) {
     return {
-      rootCause: 'The last sync did not finish successfully.',
+      rootCause: 'The latest Argo CD sync failed.',
       recommendedFix: 'Read the operation message and sync again after fixing the Git or cluster error.',
       confidence: 80,
     };
@@ -130,9 +181,11 @@ function matchFinding(
 
   if (healthNorm === 'degraded') {
     return {
-      rootCause: 'The application is unhealthy without a more specific error.',
+      rootCause: syncSucceeded
+        ? 'The latest sync completed successfully, but the deployed workload is unhealthy. No more specific workload error is stored.'
+        : 'The application is unhealthy without a more specific error.',
       recommendedFix: 'Open the resource health messages stored for this application.',
-      confidence: 70,
+      confidence: syncSucceeded ? 65 : 70,
     };
   }
 
