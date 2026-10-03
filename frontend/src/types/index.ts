@@ -82,6 +82,8 @@ export interface Deployment {
   status: DeploymentStatus;
   syncStatus?: string | null;
   healthStatus?: string | null;
+  /** False when health and sync were never snapshotted for this revision. */
+  stateRecorded?: boolean;
   environment?: string;
   deployedAt?: string;
   commitSha?: string | null;

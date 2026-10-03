@@ -6,6 +6,7 @@ import { decryptSecret } from '../common/crypto/secret-box';
 import { IntegrationProvider, IntegrationStatus } from '@prisma/client';
 import type { ArgoConnection } from './argocd.service';
 import type { MappedArgoApplication, MappedArgoProject } from './argo-application';
+import { mergeDeploymentSnapshots } from './deployment-history';
 import { maxApplications } from '../billing/plan';
 
 export interface ArgoSyncResult {
@@ -480,43 +481,52 @@ export class ArgocdSyncService {
     applicationId: number,
     item: MappedArgoApplication,
   ) {
-    const history =
-      item.history.length > 0
-        ? item.history
-        : item.revision
-          ? [
-              {
-                revision: item.revision,
-                deployedAt: item.lastObservedAt ?? new Date(),
-                startedAt: null,
-                status:
-                  item.healthStatus.toLowerCase() === 'degraded'
-                    ? 'Failed'
-                    : 'Succeeded',
-                syncStatus: item.syncStatus,
-                healthStatus: item.healthStatus,
-                environment: item.namespace || 'default',
-              },
-            ]
-          : [];
-
-    await this.prisma.deployment.deleteMany({ where: { applicationId } });
-    if (!history.length) return;
-
-    await this.prisma.deployment.createMany({
-      data: history.map((entry) => ({
-        applicationId,
-        revision: entry.revision,
-        status: entry.status,
-        syncStatus: entry.syncStatus,
-        healthStatus: entry.healthStatus,
-        environment: entry.environment,
-        deployedAt: entry.deployedAt,
-        startedAt: entry.startedAt,
-        finishedAt: entry.deployedAt,
-        commitSha: entry.revision,
-      })),
+    const existing = await this.prisma.deployment.findMany({
+      where: { applicationId },
     });
+    const writes = mergeDeploymentSnapshots(
+      existing,
+      item.history,
+      {
+        revision: item.revision,
+        healthStatus: item.healthStatus,
+        syncStatus: item.syncStatus,
+        deployedAt: item.lastObservedAt,
+        namespace: item.namespace,
+        operationPhase: item.operationPhase,
+        operationRevision: item.operationRevision,
+      },
+    );
+    const operations = writes.flatMap((write) => {
+      if (write.action === 'keep') return [];
+      if (write.action === 'insert') {
+        return [
+          this.prisma.deployment.create({
+            data: {
+              applicationId,
+              revision: write.data.revision,
+              status: write.data.status,
+              syncStatus: write.data.syncStatus,
+              healthStatus: write.data.healthStatus,
+              environment: write.data.environment,
+              deployedAt: write.data.deployedAt,
+              startedAt: write.data.startedAt,
+              finishedAt: write.data.stateRecorded ? write.data.deployedAt : null,
+              commitSha: write.data.revision,
+              stateRecorded: write.data.stateRecorded,
+            },
+          }),
+        ];
+      }
+      return [
+        this.prisma.deployment.update({
+          where: { id: write.id },
+          data: write.data,
+        }),
+      ];
+    });
+    if (operations.length === 0) return;
+    await this.prisma.$transaction(operations);
   }
 
   private async replaceObservedEvents(

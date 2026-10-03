@@ -147,9 +147,9 @@ const FAILED_RESULTS = new Set(["failed", "failure", "error", "errored"]);
 const SUCCESS_RESULTS = new Set(["succeeded", "success", "successful"]);
 
 /**
- * Outcome comes from the stored Result. Health is used only when Result is
- * absent, so a Succeeded revision is not also counted as failed because the
- * current application is Degraded.
+ * Result is the sync operation outcome. It does not depend on whether a
+ * health/sync snapshot was stored. Succeeded is a success. Failed or Error
+ * is a failure. Health classifies a row only when Result is absent.
  */
 export function classifyDeployment(deployment: Deployment): DeploymentOutcome {
   const status = (deployment.status ?? "").trim().toLowerCase();

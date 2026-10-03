@@ -1,6 +1,7 @@
 "use client";
 
 import { HealthBadge, StatusBadge, SyncBadge } from "@/components/ui/status-badge";
+import { shownResult, shownSnapshot } from "@/lib/deployment-display";
 import { formatDateTime, formatLocalDate, formatLocalTime, shortRevision } from "@/lib/format";
 import type { Deployment } from "@/types";
 import { useState } from "react";
@@ -42,13 +43,13 @@ export function DeploymentTable({
                 {shortRevision(row.revision)}
               </td>
               <td className="px-3 py-3">
-                <StatusBadge value={row.status} />
+                <StatusBadge value={shownResult(row.status)} />
               </td>
               <td className="px-3 py-3">
-                <SyncBadge value={row.syncStatus} />
+                <SyncBadge value={shownSnapshot(row.syncStatus)} />
               </td>
               <td className="px-3 py-3">
-                <HealthBadge value={row.healthStatus} />
+                <HealthBadge value={shownSnapshot(row.healthStatus)} />
               </td>
               <td className="px-3 py-3 text-zinc-400">
                 {formatDateTime(row.deployedAt)}
@@ -110,13 +111,13 @@ export function DeploymentHistoryTable({ rows }: { rows: Deployment[] }) {
               <td className="px-3 py-3 text-zinc-400">{formatLocalTime(row.deployedAt)}</td>
               <td className="px-3 py-3 font-mono text-xs text-zinc-300">{shortRevision(row.revision)}</td>
               <td className="px-3 py-3">
-                <HealthBadge value={row.healthStatus} />
+                <HealthBadge value={shownSnapshot(row.healthStatus)} />
               </td>
               <td className="px-3 py-3">
-                <SyncBadge value={row.syncStatus} />
+                <SyncBadge value={shownSnapshot(row.syncStatus)} />
               </td>
               <td className="px-3 py-3">
-                <StatusBadge value={row.status} />
+                <StatusBadge value={shownResult(row.status)} />
               </td>
             </tr>
           ))}

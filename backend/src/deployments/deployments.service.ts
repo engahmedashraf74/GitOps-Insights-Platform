@@ -8,6 +8,7 @@ import {
   ListDeploymentsQueryDto,
   UpdateDeploymentDto,
 } from './dto/deployment.dto';
+import { presentDeploymentSnapshot } from '../argocd/deployment-history';
 
 @Injectable()
 export class DeploymentsService {
@@ -27,15 +28,18 @@ export class DeploymentsService {
         healthStatus: dto.healthStatus,
         commitSha: dto.commitSha,
         environmentId: dto.environmentId,
+        stateRecorded: Boolean(dto.healthStatus || dto.syncStatus),
       },
     });
   }
 
   findAllByApplication(applicationId: number) {
-    return this.prisma.deployment.findMany({
-      where: { applicationId },
-      orderBy: { deployedAt: 'desc' },
-    });
+    return this.prisma.deployment
+      .findMany({
+        where: { applicationId },
+        orderBy: { deployedAt: 'desc' },
+      })
+      .then((rows) => rows.map(presentDeploymentSnapshot));
   }
 
   async findAllForUser(userId: number, query: ListDeploymentsQueryDto) {
@@ -78,10 +82,11 @@ export class DeploymentsService {
       };
     }
 
-    return this.prisma.deployment.findMany({
+    const rows = await this.prisma.deployment.findMany({
       where,
       orderBy: { deployedAt: 'desc' },
     });
+    return rows.map(presentDeploymentSnapshot);
   }
 
   async findById(userId: number, id: number) {
@@ -95,7 +100,7 @@ export class DeploymentsService {
     if (!deployment) {
       throw new NotFoundException('Deployment not found');
     }
-    return deployment;
+    return presentDeploymentSnapshot(deployment);
   }
 
   async updateStatus(userId: number, id: number, dto: UpdateDeploymentDto) {
@@ -106,6 +111,7 @@ export class DeploymentsService {
         status: dto.status,
         syncStatus: dto.syncStatus,
         healthStatus: dto.healthStatus,
+        ...(dto.healthStatus || dto.syncStatus ? { stateRecorded: true } : {}),
       },
     });
   }

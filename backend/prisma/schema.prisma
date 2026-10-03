@@ -182,6 +182,9 @@ model Deployment {
   status        String
   syncStatus    String?
   healthStatus  String?
+  /// True only when health and sync were observed for this revision.
+  /// False means Argo history had no snapshot, not that Argo reported Unknown.
+  stateRecorded Boolean  @default(false)
   environment   String
   deployedAt    DateTime @default(now())
   commitSha     String?

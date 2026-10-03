@@ -15,6 +15,8 @@ export interface MappedArgoApplication {
   syncStatus: string;
   healthStatus: string;
   revision: string;
+  operationPhase: string | null;
+  operationRevision: string | null;
   lastObservedAt: Date | null;
   history: MappedArgoHistory[];
   signals: MappedArgoSignal[];
@@ -29,9 +31,6 @@ export interface MappedArgoHistory {
   revision: string;
   deployedAt: Date;
   startedAt: Date | null;
-  status: string;
-  syncStatus: string;
-  healthStatus: string;
   environment: string;
 }
 
@@ -82,12 +81,7 @@ export function mapArgoApplication(raw: unknown): MappedArgoApplication | null {
     stringOrNull(metadata?.uid) || `${name}@${namespace || 'default'}`;
 
   const finishedAt = parseDate(operation?.finishedAt);
-  const history = mapHistory(
-    status?.history,
-    namespace,
-    syncStatus,
-    healthStatus,
-  );
+  const history = mapHistory(status?.history, namespace);
 
   return {
     uid,
@@ -101,10 +95,23 @@ export function mapArgoApplication(raw: unknown): MappedArgoApplication | null {
     syncStatus,
     healthStatus,
     revision,
+    operationPhase: stringOrNull(operation?.phase),
+    operationRevision: operationRevision(operation),
     lastObservedAt: finishedAt || history[0]?.deployedAt || null,
     history,
     signals: mapSignals(status, health, operation),
   };
+}
+
+function operationRevision(
+  operation: Record<string, unknown> | undefined,
+): string | null {
+  const syncResult = asRecord(operation?.syncResult);
+  const fromResult = stringOrNull(syncResult?.revision);
+  if (fromResult) return fromResult;
+  const nested = asRecord(operation?.operation);
+  const sync = asRecord(nested?.sync);
+  return stringOrNull(sync?.revision);
 }
 
 function mapSignals(
@@ -155,14 +162,16 @@ function mapSignals(
   return signals;
 }
 
+/**
+ * status.history records which revision was deployed and when.
+ * It does not include that revision's health or sync status.
+ */
 function mapHistory(
   value: unknown,
   namespace: string | null,
-  syncStatus: string,
-  healthStatus: string,
 ): MappedArgoHistory[] {
   if (!Array.isArray(value)) return [];
-  const rows = value
+  return value
     .map((entry) => {
       const item = asRecord(entry);
       if (!item) return null;
@@ -175,20 +184,10 @@ function mapHistory(
         deployedAt,
         startedAt: parseDate(item.deployStartedAt),
         environment: namespace || 'default',
-      };
+      } satisfies MappedArgoHistory;
     })
-    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .filter((item): item is MappedArgoHistory => item !== null)
     .sort((a, b) => b.deployedAt.getTime() - a.deployedAt.getTime());
-
-  return rows.map((entry, index) => {
-    const current = index === 0;
-    return {
-      ...entry,
-      status: current && healthStatus.toLowerCase() === 'degraded' ? 'Failed' : 'Succeeded',
-      syncStatus: current ? syncStatus : 'Unknown',
-      healthStatus: current ? healthStatus : 'Unknown',
-    } satisfies MappedArgoHistory;
-  });
 }
 
 function firstSource(spec?: Record<string, unknown>) {

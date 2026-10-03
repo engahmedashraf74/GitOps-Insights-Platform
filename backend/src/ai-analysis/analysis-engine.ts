@@ -81,10 +81,11 @@ function matchWorkload(
     };
   }
 
-  if (corpus.includes('progressdeadlineexceeded')) {
+  if (progressDeadlineExceeded(corpus)) {
     return {
       rootCause: 'The workload did not become ready before its progress deadline.',
-      recommendedFix: 'Check the new pods, probes, and the Deployment progress deadline.',
+      recommendedFix:
+        'Check the new pods, readiness/liveness probes, container startup, and the Deployment progress deadline.',
       confidence: 85,
     };
   }
@@ -124,6 +125,14 @@ function imagePullEvidence(corpus: string): number {
       corpus.includes('backoff pulling image'),
   ].filter(Boolean).length;
   return phrases > 1 ? 90 : 85;
+}
+
+function progressDeadlineExceeded(corpus: string): boolean {
+  return (
+    corpus.includes('progressdeadlineexceeded') ||
+    corpus.includes('exceeded its progress deadline') ||
+    corpus.includes('progress deadline exceeded')
+  );
 }
 
 function syncOperationFailed(syncNorm: string, corpus: string): boolean {
