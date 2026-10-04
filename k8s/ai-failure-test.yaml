@@ -17,3 +17,23 @@ spec:
         - name: failure-test
           image: docker.io/library/nonexistent-gitops-ai-test:never-exists
           imagePullPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitops-ai-failure-test-2
+spec:
+  replicas: 1
+  progressDeadlineSeconds: 30
+  selector:
+    matchLabels:
+      app: gitops-ai-failure-test-2
+  template:
+    metadata:
+      labels:
+        app: gitops-ai-failure-test-2
+    spec:
+      containers:
+        - name: failure-test
+          image: docker.io/library/nonexistent-gitops-ai-test-2:never-exists
+          imagePullPolicy: Always
