@@ -1,5 +1,5 @@
 import { shownResult, shownSnapshot } from "@/lib/deployment-display";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatUtcDateTime } from "@/lib/format";
 import { classifyDeployment } from "@/lib/metrics";
 import type { DeploymentAnalysis } from "@/services/billing";
 import type { ApplicationEvent, Deployment, SuccessFailurePoint } from "@/types";
@@ -36,6 +36,8 @@ export interface ComparisonRow {
   previous: string;
   current: string;
   changed: boolean;
+  previousTitle?: string;
+  currentTitle?: string;
 }
 
 export interface RevisionComparison {
@@ -213,7 +215,32 @@ export function actionSteps(recommendedFix: string, calm: boolean): string[] {
 
 export function actionNotes(recommendations: string[], recommendedFix: string): string[] {
   const fix = recommendedFix.trim();
-  return recommendations.map((item) => item.trim()).filter((item) => item && item !== fix);
+  return recommendations
+    .map((item) => item.trim())
+    .filter((item) => item && item !== fix && !/failed or degraded/i.test(item));
+}
+
+const FAILED_RESULTS = new Set(["failed", "failure", "error", "errored"]);
+
+/** Result failures and observed Degraded health are counted separately. */
+export function deploymentOutcomeSummary(rows: Deployment[]): string | null {
+  const failed = rows.filter((row) =>
+    FAILED_RESULTS.has((row.status ?? "").trim().toLowerCase()),
+  ).length;
+  const degraded = rows.filter(
+    (row) => (row.healthStatus ?? "").trim().toLowerCase() === "degraded",
+  ).length;
+  if (failed === 0 && degraded === 0) return null;
+  const parts: string[] = [];
+  if (failed > 0) {
+    parts.push(`${failed} stored deployment${failed === 1 ? "" : "s"} failed`);
+  }
+  if (degraded > 0) {
+    parts.push(
+      `${degraded} stored deployment${degraded === 1 ? " was" : "s were"} observed as degraded`,
+    );
+  }
+  return `${parts.join("; ")}.`;
 }
 
 export function compareLatestDeployments(rows: Deployment[]): RevisionComparison | null {
@@ -235,6 +262,8 @@ export function compareLatestDeployments(rows: Deployment[]): RevisionComparison
       label: "Deployed",
       previous: formatDateTime(previous.deployedAt),
       current: formatDateTime(current.deployedAt),
+      previousTitle: formatUtcDateTime(previous.deployedAt),
+      currentTitle: formatUtcDateTime(current.deployedAt),
     },
     {
       label: "Result",

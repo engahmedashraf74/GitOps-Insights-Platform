@@ -2,11 +2,14 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { DeploymentAnalysis } from "@/services/billing";
 import type { ApplicationEvent, Deployment } from "@/types";
+import { formatUtcDateTime } from "./format";
 import {
+  actionNotes,
   actionSteps,
   buildEvidence,
   buildWindowStats,
   compareLatestDeployments,
+  deploymentOutcomeSummary,
   failureDirection,
   situationFor,
 } from "./intelligence";
@@ -114,6 +117,31 @@ describe("deployment intelligence", () => {
       "Check the Deployment progress deadline.",
     ]);
     assert.deepEqual(actionSteps("Inspect application logs manually.", true), []);
+  });
+
+  it("counts failed results and observed degraded health separately", () => {
+    const text = deploymentOutcomeSummary([
+      deployment({ status: "Failed", healthStatus: "Degraded" }),
+      deployment({ revision: "b", status: "Succeeded", healthStatus: "Degraded" }),
+      deployment({ revision: "c", status: "Succeeded", healthStatus: null }),
+    ]);
+    assert.equal(
+      text,
+      "1 stored deployment failed; 2 stored deployments were observed as degraded.",
+    );
+    assert.deepEqual(
+      actionNotes(
+        ["Check the new pods.", "1 of 13 stored deployments are failed or degraded."],
+        "Check the new pods.",
+      ),
+      [],
+    );
+  });
+
+  it("keeps the UTC instant available without changing the local display zone", () => {
+    const utc = formatUtcDateTime("2026-10-04T00:54:00.000Z");
+    assert.match(utc, /00:54/);
+    assert.match(utc, /UTC/);
   });
 
   it("states a failure direction only from stored results", () => {

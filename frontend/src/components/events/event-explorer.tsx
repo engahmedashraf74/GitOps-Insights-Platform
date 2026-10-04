@@ -1,6 +1,6 @@
 import { EmptyState } from "@/components/ui/empty-state";
 import { Badge } from "@/components/ui/status-badge";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatUtcDateTime } from "@/lib/format";
 import type { ApplicationEvent } from "@/types";
 
 export function EventExplorer({ rows }: { rows: ApplicationEvent[] }) {
@@ -34,7 +34,9 @@ export function EventExplorer({ rows }: { rows: ApplicationEvent[] }) {
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={warning ? "warning" : "neutral"}>{warning ? "Warning" : "Normal"}</Badge>
               <Badge tone="info">{row.type}</Badge>
-              <span className="text-xs text-zinc-500">{formatDateTime(row.createdAt)}</span>
+              <span className="text-xs text-zinc-500" title={formatUtcDateTime(row.createdAt)}>
+                {formatDateTime(row.createdAt)}
+              </span>
             </div>
             <p className="mt-2 text-sm text-zinc-200">{row.message}</p>
             {source ? (

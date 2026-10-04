@@ -13,8 +13,23 @@ export function formatDateTime(value?: string | Date | null): string {
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hourCycle: "h23",
+    hour12: true,
     timeZone: browserTimeZone(),
+  }).format(date);
+}
+
+/** Exact UTC instant for tooltips. Displayed times stay in the browser timezone. */
+export function formatUtcDateTime(value?: string | Date | null): string {
+  const date = parseTimestamp(value);
+  if (!date) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
     timeZoneName: "short",
   }).format(date);
 }
@@ -36,9 +51,8 @@ export function formatLocalTime(value?: string | Date | null): string {
   return new Intl.DateTimeFormat("en-US", {
     hour: "2-digit",
     minute: "2-digit",
-    hourCycle: "h23",
+    hour12: true,
     timeZone: browserTimeZone(),
-    timeZoneName: "short",
   }).format(date);
 }
 

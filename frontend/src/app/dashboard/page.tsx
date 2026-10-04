@@ -151,22 +151,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium">Deployment intelligence</h2>
+      <section className="mt-8 flex flex-col gap-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--text)]">Deployment Intelligence</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+            Understand deployment risk, evidence, root cause, and what to check next.
+          </p>
+        </div>
         {snapshot?.subscription?.aiFeatures ? (
-          <Link
-            href="/ai"
-            className="block rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-dim)] p-5 text-sm text-[var(--accent-strong)]"
-          >
-            Open deployment intelligence for risk, evidence, and what to check next.
+          <Link href="/ai" className="shrink-0 text-sm font-medium text-[var(--accent-strong)]">
+            Open Intelligence →
           </Link>
         ) : (
-          <div className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--text-secondary)]">
-            Deployment intelligence is included with Pro.{" "}
-            <Link href="/upgrade" className="text-[var(--accent-strong)]">
-              Upgrade to Pro
-            </Link>
-          </div>
+          <Link href="/upgrade" className="shrink-0 text-sm font-medium text-[var(--accent-strong)]">
+            Upgrade to Pro →
+          </Link>
         )}
       </section>
       </>

@@ -1,11 +1,12 @@
 import { MetricCard } from "@/components/ui/metric-card";
 import { HealthBadge, StatusBadge, SyncBadge } from "@/components/ui/status-badge";
-import { formatDateTime, formatRelative, percentLabel, shortRevision } from "@/lib/format";
+import { formatDateTime, formatRelative, formatUtcDateTime, percentLabel, shortRevision } from "@/lib/format";
 import {
   actionNotes,
   actionSteps,
   buildEvidence,
   compareLatestDeployments,
+  deploymentOutcomeSummary,
   newestDeployment,
   situationFor,
   whyItMatters,
@@ -32,6 +33,7 @@ export function DeploymentIntelligencePanel({
   stats,
   events,
   deployments,
+  storedDeployments,
   loadedAt,
 }: {
   application?: Application;
@@ -39,6 +41,7 @@ export function DeploymentIntelligencePanel({
   stats: WindowStats | null;
   events: ApplicationEvent[];
   deployments: Deployment[];
+  storedDeployments?: Deployment[];
   loadedAt: string | null;
 }) {
   const situation = situationFor(result.healthStatus, result.syncStatus, result.rootCause);
@@ -49,7 +52,11 @@ export function DeploymentIntelligencePanel({
   const latest = newestDeployment(deployments);
   const evidence = buildEvidence(result, events, latest);
   const steps = actionSteps(result.recommendedFix, calm);
-  const notes = actionNotes(result.recommendations, result.recommendedFix);
+  const outcomeSummary = deploymentOutcomeSummary(storedDeployments ?? deployments);
+  const notes = [
+    ...actionNotes(result.recommendations, result.recommendedFix),
+    ...(outcomeSummary ? [outcomeSummary] : []),
+  ];
   const comparison = compareLatestDeployments(deployments);
 
   return (
@@ -71,7 +78,9 @@ export function DeploymentIntelligencePanel({
           <SyncBadge value={result.syncStatus} />
           {application?.namespace ? <span>{application.namespace}</span> : null}
           <span>Observed from Argo CD</span>
-          {loadedAt ? <span>Loaded {formatDateTime(loadedAt)}</span> : null}
+          {loadedAt ? (
+            <span title={formatUtcDateTime(loadedAt)}>Loaded {formatDateTime(loadedAt)}</span>
+          ) : null}
         </div>
       </header>
 
@@ -120,15 +129,29 @@ export function DeploymentIntelligencePanel({
                 </span>
               ) : null}
             </div>
-            <h3 className="mt-5 text-sm font-medium text-[var(--text)]">Primary diagnosis</h3>
-            <p className="mt-2 text-sm leading-6 text-[var(--text)]">{result.rootCause}</p>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-              {whyItMatters(result.healthStatus, result.syncStatus, result.rootCause)}
-            </p>
-            <p className="mt-4 text-xs text-[var(--text-muted)]">
-              Confidence {result.confidence}. Diagnosis uses the current Argo CD health and sync
-              plus stored events, not only the selected time window.
-            </p>
+            {calm ? (
+              <>
+                <h3 className="mt-5 text-sm font-medium text-[var(--text)]">
+                  No obvious deployment problem detected.
+                </h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--text-secondary)]">
+                  Assessment based on current Argo CD health, sync state, stored deployment
+                  results, and recent events.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="mt-5 text-sm font-medium text-[var(--text)]">Primary diagnosis</h3>
+                <p className="mt-2 text-sm leading-6 text-[var(--text)]">{result.rootCause}</p>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+                  {whyItMatters(result.healthStatus, result.syncStatus, result.rootCause)}
+                </p>
+                <p className="mt-4 text-xs text-[var(--text-muted)]">
+                  Confidence {result.confidence}. Diagnosis uses the current Argo CD health and sync
+                  plus stored events, not only the selected time window.
+                </p>
+              </>
+            )}
           </div>
 
           <div>
@@ -156,14 +179,17 @@ export function DeploymentIntelligencePanel({
         </div>
       </section>
 
-      <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
-        <h2 className="text-sm font-semibold text-[var(--text)]">What to do next</h2>
-        {calm ? (
-          <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
-            No specific workload or sync failure is stored for the current application.
-            {result.rootCause ? ` ${result.rootCause}` : ""}
-          </p>
-        ) : (
+      {calm ? (
+        notes.length > 0 ? (
+          <ul className="space-y-1 text-sm text-[var(--text-secondary)]">
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        ) : null
+      ) : (
+        <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <h2 className="text-sm font-semibold text-[var(--text)]">What to do next</h2>
           <ol className="mt-4 space-y-3">
             {steps.map((step, index) => (
               <li key={step} className="flex gap-3 text-sm text-[var(--text)]">
@@ -179,15 +205,15 @@ export function DeploymentIntelligencePanel({
               </li>
             ))}
           </ol>
-        )}
-        {notes.length > 0 ? (
-          <ul className="mt-4 space-y-1 text-sm text-[var(--text-secondary)]">
-            {notes.map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
-        ) : null}
-      </section>
+          {notes.length > 0 ? (
+            <ul className="mt-4 space-y-1 text-sm text-[var(--text-secondary)]">
+              {notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      )}
 
       {comparison ? (
         <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
@@ -224,8 +250,12 @@ export function DeploymentIntelligencePanel({
                     <th className="py-2 pr-3 text-left font-medium text-[var(--text-secondary)]">
                       {row.label}
                     </th>
-                    <td className="py-2 pr-3 font-mono text-xs text-[var(--text)]">{row.previous}</td>
-                    <td className="py-2 font-mono text-xs text-[var(--text)]">{row.current}</td>
+                    <td className="py-2 pr-3 font-mono text-xs text-[var(--text)]" title={row.previousTitle}>
+                      {row.previous}
+                    </td>
+                    <td className="py-2 font-mono text-xs text-[var(--text)]" title={row.currentTitle}>
+                      {row.current}
+                    </td>
                   </tr>
                 ))}
               </tbody>

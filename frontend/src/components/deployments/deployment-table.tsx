@@ -2,7 +2,7 @@
 
 import { HealthBadge, StatusBadge, SyncBadge } from "@/components/ui/status-badge";
 import { shownResult, shownSnapshot } from "@/lib/deployment-display";
-import { formatDateTime, formatLocalDate, formatLocalTime, shortRevision } from "@/lib/format";
+import { formatDateTime, formatLocalDate, formatLocalTime, formatUtcDateTime, shortRevision } from "@/lib/format";
 import type { Deployment } from "@/types";
 import { useState } from "react";
 
@@ -51,7 +51,7 @@ export function DeploymentTable({
               <td className="px-3 py-3">
                 <HealthBadge value={shownSnapshot(row.healthStatus)} />
               </td>
-              <td className="px-3 py-3 text-zinc-400">
+              <td className="px-3 py-3 text-zinc-400" title={formatUtcDateTime(row.deployedAt)}>
                 {formatDateTime(row.deployedAt)}
               </td>
             </tr>
@@ -107,8 +107,12 @@ export function DeploymentHistoryTable({ rows }: { rows: Deployment[] }) {
               key={`${row.id ?? row.revision}-${index}`}
               className="border-b border-white/6 hover:bg-white/[0.02]"
             >
-              <td className="px-3 py-3 text-zinc-200">{formatLocalDate(row.deployedAt)}</td>
-              <td className="px-3 py-3 text-zinc-400">{formatLocalTime(row.deployedAt)}</td>
+              <td className="px-3 py-3 text-zinc-200" title={formatUtcDateTime(row.deployedAt)}>
+                {formatLocalDate(row.deployedAt)}
+              </td>
+              <td className="px-3 py-3 text-zinc-400" title={formatUtcDateTime(row.deployedAt)}>
+                {formatLocalTime(row.deployedAt)}
+              </td>
               <td className="px-3 py-3 font-mono text-xs text-zinc-300" title={row.revision}>
                 {shortRevision(row.revision)}
               </td>

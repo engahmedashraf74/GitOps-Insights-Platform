@@ -233,6 +233,7 @@ export default function AiAnalysisPage() {
               stats={stats}
               events={events}
               deployments={filtered}
+              storedDeployments={deployments}
               loadedAt={loadedAt}
             />
           ) : null}

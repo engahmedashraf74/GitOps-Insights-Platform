@@ -1,7 +1,5 @@
 "use client";
 
-import { ChartCard } from "@/components/charts/chart-card";
-import { DeploymentActivityChart } from "@/components/charts/deployment-activity-chart";
 import { DeploymentTable } from "@/components/deployments/deployment-table";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
@@ -12,15 +10,13 @@ import { MetricSkeleton } from "@/components/ui/skeleton";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
-import { buildActivitySeries, isFailed, isSucceeded } from "@/lib/metrics";
-import type { TimeRange } from "@/types";
+import { isFailed, isSucceeded } from "@/lib/metrics";
 import { Activity } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 export default function DeploymentsPage() {
   const ready = useAuthGuard();
   const { loading, error, snapshot, applications, reload } = useWorkspace(ready);
-  const [range, setRange] = useState<TimeRange>("30d");
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
 
@@ -30,10 +26,6 @@ export default function DeploymentsPage() {
       new Date(b.deployedAt ?? 0).getTime() -
       new Date(a.deployedAt ?? 0).getTime(),
   )[0];
-  const activity = useMemo(
-    () => buildActivitySeries(deployments, range),
-    [deployments, range],
-  );
   const rows = deployments.filter((item) => {
     const q = query.toLowerCase();
     const appName =
@@ -83,30 +75,7 @@ export default function DeploymentsPage() {
 
       {connected && !error && !loading ? (
       <>
-      <div className="mt-6">
-        <ChartCard
-          title="Deployments over time"
-          actions={
-            <div className="flex gap-1">
-              {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setRange(item)}
-                  className={`rounded-md px-2 py-1 text-xs ${
-                    range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
-                  }`}
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <DeploymentActivityChart data={activity} />
-        </ChartCard>
-      </div>
-
-      <div className="mt-6 rounded-xl border border-white/8 bg-[#111113]/80 p-5">
+      <div className="mt-6 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row">
           <SearchInput
             className="max-w-md flex-1"
