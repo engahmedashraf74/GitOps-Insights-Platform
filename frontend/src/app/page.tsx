@@ -101,7 +101,7 @@ export default function LandingPage() {
         <div className="rounded-2xl border border-white/10 bg-[#111113]/80 p-4 shadow-2xl">
           <div className="mb-4 flex items-center justify-between text-xs text-zinc-500">
             <span>Overview</span>
-            <span>Live preview</span>
+            <span>Sample data</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {["Apps", "Deploys", "Success"].map((label, index) => (

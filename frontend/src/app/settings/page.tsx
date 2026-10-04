@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { getSessionUser } from "@/lib/auth";
+import { applyTheme } from "@/lib/theme";
 import { getWorkspace, saveWorkspace } from "@/lib/settings";
 import { loadSettings, updateSettings } from "@/services/settings";
 import type { UserPreferences } from "@/types";
@@ -174,15 +175,14 @@ export default function SettingsPage() {
               className="mt-2 h-11 w-full rounded-lg border border-white/10 bg-zinc-950/60 px-3"
               value={prefs.theme}
               onChange={(event) => {
-                const next = {
-                  ...prefs,
-                  theme: event.target.value as UserPreferences["theme"],
-                };
+                const theme = event.target.value as UserPreferences["theme"];
+                const next = { ...prefs, theme };
                 setPrefs(next);
-                updateSettings(next);
+                applyTheme(theme);
               }}
             >
               <option value="dark">Dark</option>
+              <option value="light">Light</option>
               <option value="system">System</option>
             </select>
           </label>
@@ -197,6 +197,10 @@ export default function SettingsPage() {
                 updateSettings(next);
               }}
             />
+            <p className="text-xs text-[var(--text-muted)]">
+              Deployment timestamps use the browser timezone. This preference is stored and does
+              not change those times.
+            </p>
           </label>
           <label className="block text-sm">
             Default project

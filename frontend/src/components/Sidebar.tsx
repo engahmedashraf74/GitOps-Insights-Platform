@@ -26,7 +26,7 @@ const navigation = [
   { label: "Applications", href: "/applications", icon: Boxes },
   { label: "Deployments", href: "/deployments", icon: Activity },
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
-  { label: "AI Analysis", href: "/ai", icon: Sparkles },
+  { label: "Intelligence", href: "/ai", icon: Sparkles },
   { label: "Integrations", href: "/integrations", icon: Plug },
   { label: "Billing", href: "/billing", icon: CreditCard },
 ];

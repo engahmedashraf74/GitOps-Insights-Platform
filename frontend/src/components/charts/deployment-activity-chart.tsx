@@ -22,25 +22,26 @@ export function DeploymentActivityChart({ data }: { data: ActivityPoint[] }) {
               <stop offset="100%" stopColor="#2dd4bf" stopOpacity={0} />
             </linearGradient>
           </defs>
-          <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fill: "#71717a", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: "#71717a", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={28}
           />
           <Tooltip
             contentStyle={{
-              background: "#111113",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
               borderRadius: 8,
+              color: "var(--text)",
             }}
           />
           <Area

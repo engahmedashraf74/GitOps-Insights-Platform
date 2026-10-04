@@ -89,10 +89,10 @@ export function DeploymentHistoryTable({ rows }: { rows: Deployment[] }) {
   });
 
   return (
-    <div className="overflow-x-auto">
+    <div className="max-h-[32rem] overflow-auto">
       <table className="w-full min-w-[720px] text-left text-sm">
-        <thead>
-          <tr className="border-b border-white/8 text-xs uppercase tracking-wider text-zinc-500">
+        <thead className="sticky top-0 z-10 bg-[var(--surface)]">
+          <tr className="border-b border-[var(--border)] text-xs uppercase tracking-wider text-[var(--text-muted)]">
             <SortHeader label="Date" active={sortKey === "date"} onClick={() => toggle("date")} />
             <th className="px-3 py-3 font-medium">Time</th>
             <SortHeader label="Revision" active={sortKey === "revision"} onClick={() => toggle("revision")} />
@@ -109,7 +109,9 @@ export function DeploymentHistoryTable({ rows }: { rows: Deployment[] }) {
             >
               <td className="px-3 py-3 text-zinc-200">{formatLocalDate(row.deployedAt)}</td>
               <td className="px-3 py-3 text-zinc-400">{formatLocalTime(row.deployedAt)}</td>
-              <td className="px-3 py-3 font-mono text-xs text-zinc-300">{shortRevision(row.revision)}</td>
+              <td className="px-3 py-3 font-mono text-xs text-zinc-300" title={row.revision}>
+                {shortRevision(row.revision)}
+              </td>
               <td className="px-3 py-3">
                 <HealthBadge value={shownSnapshot(row.healthStatus)} />
               </td>
@@ -141,7 +143,8 @@ function SortHeader({
       <button
         type="button"
         onClick={onClick}
-        className={active ? "text-teal-200" : "text-zinc-500"}
+        aria-pressed={active}
+        className={active ? "text-[var(--accent-strong)]" : "text-[var(--text-muted)]"}
       >
         {label}
       </button>

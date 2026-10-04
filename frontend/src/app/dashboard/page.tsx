@@ -1,7 +1,7 @@
 "use client";
 
 import { ApplicationCard } from "@/components/applications/application-card";
-import { DeploymentTable } from "@/components/deployments/deployment-table";
+import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
 import { PlanUsageBar } from "@/components/billing/plan-usage-bar";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -14,6 +14,7 @@ import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
+import { buildSuccessFailureSeries } from "@/lib/analytics";
 import { buildWorkspaceMetrics } from "@/lib/metrics";
 import { syncApplications } from "@/services/applications";
 import { Boxes, RefreshCw } from "lucide-react";
@@ -40,13 +41,10 @@ export default function DashboardPage() {
           },
     [snapshot],
   );
-  const recent = [...(snapshot?.deployments ?? [])]
-    .sort(
-      (a, b) =>
-        new Date(b.deployedAt ?? 0).getTime() -
-        new Date(a.deployedAt ?? 0).getTime(),
-    )
-    .slice(0, 8);
+  const activity = useMemo(
+    () => buildSuccessFailureSeries(snapshot?.deployments ?? [], "30d"),
+    [snapshot?.deployments],
+  );
 
   if (!ready) return null;
 
@@ -115,26 +113,26 @@ export default function DashboardPage() {
       {connected && !error && !loading ? (
       <>
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
-        <div className="xl:col-span-2 rounded-xl border border-white/8 bg-[#111113]/80 p-5">
-          <h2 className="mb-4 text-sm font-medium">Recent deployments</h2>
-          {recent.length === 0 ? (
+        <div className="xl:col-span-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+          <h2 className="text-sm font-medium">Deployment activity</h2>
+          <p className="mt-1 text-xs text-[var(--text-muted)]">
+            Succeeded and failed results from recorded deployments over the last 30 days.
+            Days with no deployment are 0.
+          </p>
+          {(snapshot?.deployments.length ?? 0) === 0 ? (
             <EmptyState
               title="No deployments yet"
-              description="Recorded revisions will show up here with status, sync, and health."
+              description="Recorded revisions appear here after Argo CD history is stored."
               action={
-                <Link href="/applications" className="text-sm text-teal-300">
+                <Link href="/applications" className="text-sm text-[var(--accent-strong)]">
                   View applications
                 </Link>
               }
             />
           ) : (
-            <DeploymentTable
-              rows={recent}
-              applicationName={(id) =>
-                applications.find((application) => application.id === id)?.name ||
-                "Application"
-              }
-            />
+            <div className="mt-4">
+              <SuccessFailureChart data={activity} />
+            </div>
           )}
         </div>
         <div className="space-y-4">
@@ -154,18 +152,18 @@ export default function DashboardPage() {
       </div>
 
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-medium">AI Analysis</h2>
+        <h2 className="mb-3 text-sm font-medium">Deployment intelligence</h2>
         {snapshot?.subscription?.aiFeatures ? (
           <Link
             href="/ai"
-            className="block rounded-xl border border-teal-400/20 bg-teal-400/5 p-5 text-sm text-teal-200"
+            className="block rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-dim)] p-5 text-sm text-[var(--accent-strong)]"
           >
-            Open AI Deployment Analysis for risk, recommendations, and deployment history.
+            Open deployment intelligence for risk, evidence, and what to check next.
           </Link>
         ) : (
-          <div className="rounded-xl border border-white/8 p-5 text-sm text-zinc-400">
-            AI Deployment Analysis is included with Pro.{" "}
-            <Link href="/upgrade" className="text-teal-300">
+          <div className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--text-secondary)]">
+            Deployment intelligence is included with Pro.{" "}
+            <Link href="/upgrade" className="text-[var(--accent-strong)]">
               Upgrade to Pro
             </Link>
           </div>

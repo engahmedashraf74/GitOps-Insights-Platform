@@ -1,6 +1,5 @@
 "use client";
 
-import { DeploymentTable } from "@/components/deployments/deployment-table";
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
@@ -23,9 +22,9 @@ import type {
   ApplicationOverview,
   ApplicationRepository,
   Environment,
-  TimeRange,
 } from "@/types";
 import { ApiError } from "@/services/api";
+import Link from "next/link";
 import { use, useCallback, useEffect, useState } from "react";
 
 const tabs = ["Overview", "Deployments", "Environments", "Repository", "Events"] as const;
@@ -43,9 +42,6 @@ export default function ApplicationDetailsPage({
   const { push } = useToast();
   const application = applications.find((item) => item.id === applicationId);
   const [tab, setTab] = useState<Tab>("Overview");
-  const [range, setRange] = useState<TimeRange>("30d");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [envFilter, setEnvFilter] = useState("all");
   const [overview, setOverview] = useState<ApplicationOverview | null>(null);
   const [environments, setEnvironments] = useState<Environment[]>([]);
   const [repository, setRepository] = useState<ApplicationRepository | null>(null);
@@ -115,25 +111,6 @@ export default function ApplicationDetailsPage({
     };
   }, [applicationId, ready, tab]);
 
-  const timeline = overview?.timeline ?? [];
-  const envNames = Array.from(
-    new Set(
-      timeline
-        .map((item) => item.environment)
-        .filter((value): value is string => Boolean(value)),
-    ),
-  );
-  const rangeDays = range === "7d" ? 7 : range === "30d" ? 30 : 90;
-  const rangeStart = Date.now() - rangeDays * 24 * 60 * 60 * 1000;
-  const filtered = timeline.filter((item) => {
-    const statusOk =
-      statusFilter === "all" ||
-      item.status.toLowerCase().includes(statusFilter.toLowerCase());
-    const envOk = envFilter === "all" || item.environment === envFilter;
-    const time = item.deployedAt ? new Date(item.deployedAt).getTime() : 0;
-    const inRange = !item.deployedAt || time >= rangeStart;
-    return statusOk && envOk && inRange;
-  });
   if (!ready) return null;
 
   async function onSync() {
@@ -173,9 +150,9 @@ export default function ApplicationDetailsPage({
           <Button variant="secondary" onClick={() => void load()}>
             Refresh
           </Button>
-          <Button variant="outline" onClick={() => setTab("Deployments")}>
-            View history
-          </Button>
+          <Link href={`/ai?applicationId=${applicationId}`}>
+            <Button variant="outline">Deployment intelligence</Button>
+          </Link>
         </div>
       </div>
 
@@ -234,55 +211,21 @@ export default function ApplicationDetailsPage({
       ) : null}
 
       {tab === "Deployments" ? (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <select
-              className="h-10 rounded-lg border border-white/10 bg-zinc-950/60 px-3 text-sm"
-              value={envFilter}
-              onChange={(event) => setEnvFilter(event.target.value)}
-            >
-              <option value="all">All namespaces</option>
-              {envNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-lg border border-white/10 bg-zinc-950/60 px-3 text-sm"
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value)}
-            >
-              <option value="all">All statuses</option>
-              <option value="success">Succeeded</option>
-              <option value="fail">Failed</option>
-              <option value="running">Running</option>
-            </select>
-            <div className="flex gap-1">
-              {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setRange(item)}
-                  className={`rounded-md px-2 py-1 text-xs ${
-                    range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
-                  }`}
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
-            </div>
+        <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 text-sm text-[var(--text-secondary)]">
+          <h2 className="text-sm font-medium text-[var(--text)]">Deployment history</h2>
+          <p className="mt-2">
+            Revision history, recorded health, and diagnosis are on Deployment intelligence.
+            The raw table for every application remains on Deployments.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href={`/ai?applicationId=${applicationId}`} className="text-[var(--accent-strong)]">
+              Open deployment intelligence
+            </Link>
+            <Link href="/deployments" className="text-[var(--accent-strong)]">
+              Open deployments
+            </Link>
           </div>
-          {filtered.length === 0 ? (
-            <EmptyState
-              title="No history in this filter"
-              description="History is imported from Argo CD application revisions."
-            />
-          ) : (
-            <div className="rounded-xl border border-white/8 p-5">
-              <DeploymentTable rows={filtered} />
-            </div>
-          )}
-        </div>
+        </section>
       ) : null}
 
       {tab === "Environments" ? (

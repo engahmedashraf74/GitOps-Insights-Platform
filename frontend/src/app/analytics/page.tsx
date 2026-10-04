@@ -34,7 +34,7 @@ export default function AnalyticsPage() {
     <div className="mx-auto max-w-7xl">
       <PageHeader
         title="Analytics"
-        description="Deployment volume and environment distribution from recorded history."
+        description="Deployment volume and environment distribution from recorded history. Failure diagnosis stays on Intelligence."
         actions={
           snapshot?.subscription?.fullAnalytics ? (
             <div className="flex gap-1">

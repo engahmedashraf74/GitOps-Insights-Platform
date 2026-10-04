@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppLayout from "@/components/AppLayout";
+import { ThemeSync } from "@/components/theme/theme-toggle";
 import { ToastProvider } from "@/components/ui/toast";
 
 const geistSans = Geist({
@@ -28,9 +29,18 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable}`}
+      data-theme="dark"
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var raw=localStorage.getItem("goi.preferences");var theme="dark";if(raw){var parsed=JSON.parse(raw);if(parsed.theme==="light"||parsed.theme==="dark"||parsed.theme==="system"){theme=parsed.theme;}}var resolved=theme==="system"?(window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark"):theme;document.documentElement.dataset.theme=resolved;}catch(e){document.documentElement.dataset.theme="dark";}})();`,
+          }}
+        />
+      </head>
       <body>
+        <ThemeSync />
         <ToastProvider>
           <AppLayout>{children}</AppLayout>
         </ToastProvider>

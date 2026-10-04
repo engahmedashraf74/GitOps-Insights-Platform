@@ -1,6 +1,7 @@
 "use client";
 
 import { PlanBadge } from "@/components/billing/plan-badges";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { SearchInput } from "@/components/ui/search-input";
 import { clearToken, getSessionUser } from "@/lib/auth";
 import { getPreferences, getWorkspace } from "@/lib/settings";
@@ -94,6 +95,7 @@ export function Topbar({
         >
           <PlanBadge plan={plan === "PRO" ? "pro" : plan} isPro={isPro} />
         </button>
+        <ThemeToggle />
         <button
           className="relative rounded-lg p-2 text-zinc-400 hover:bg-white/6"
           aria-label="Notifications"

@@ -166,7 +166,7 @@ export interface Integration {
 
 export interface UserPreferences {
   username: string;
-  theme: "dark" | "system";
+  theme: "dark" | "light" | "system";
   timezone: string;
   defaultProjectId: number | null;
   notifications: {

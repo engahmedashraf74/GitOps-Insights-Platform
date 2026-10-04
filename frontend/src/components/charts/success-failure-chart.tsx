@@ -5,6 +5,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -16,29 +17,31 @@ export function SuccessFailureChart({ data }: { data: SuccessFailurePoint[] }) {
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data}>
-          <CartesianGrid stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="label"
-            tick={{ fill: "#71717a", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             allowDecimals={false}
-            tick={{ fill: "#71717a", fontSize: 11 }}
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             width={28}
           />
           <Tooltip
             contentStyle={{
-              background: "#111113",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
               borderRadius: 8,
+              color: "var(--text)",
             }}
           />
-          <Bar dataKey="succeeded" fill="#34d399" radius={[6, 6, 0, 0]} />
-          <Bar dataKey="failed" fill="#fb7185" radius={[6, 6, 0, 0]} />
+          <Legend />
+          <Bar dataKey="succeeded" name="Succeeded" fill="var(--success)" radius={[6, 6, 0, 0]} />
+          <Bar dataKey="failed" name="Failed" fill="var(--danger)" radius={[6, 6, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
