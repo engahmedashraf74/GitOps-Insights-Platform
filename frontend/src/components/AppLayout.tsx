@@ -17,6 +17,9 @@ const publicPaths = new Set([
   "/register",
   "/verify-email",
   "/pricing",
+  "/terms",
+  "/privacy",
+  "/contact",
 ]);
 
 export default function AppLayout({

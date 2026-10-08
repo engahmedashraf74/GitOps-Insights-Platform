@@ -163,7 +163,11 @@ export default function RegisterPage() {
                 checked={accepted}
                 onChange={(event) => setAccepted(event.target.checked)}
               />
-              I agree to the product terms and acceptable use for this workspace.
+              I agree to the{" "}
+              <Link href="/terms" className="text-teal-300 hover:text-teal-200">
+                Terms of Service
+              </Link>{" "}
+              and acceptable use for this workspace.
             </label>
             <Button type="submit" className="w-full" loading={loading}>
               Create account

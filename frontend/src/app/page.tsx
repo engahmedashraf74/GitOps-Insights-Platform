@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { landingPreviewApps } from "@/mock/demo-data";
 import { PricingSection } from "@/components/billing/pricing-section";
+import { PublicFooter } from "@/components/legal/public-chrome";
 import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 
 const features = [
@@ -245,15 +246,7 @@ export default function LandingPage() {
         </Link>
       </section>
 
-      <footer className="border-t border-white/8 px-6 py-8 text-sm text-zinc-500">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p>GitOps Insights</p>
-          <Link href="/pricing" className="text-zinc-400 hover:text-zinc-200">
-            Pricing
-          </Link>
-          <p>Deployment health for GitOps teams.</p>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   );
 }
