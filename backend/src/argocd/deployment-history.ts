@@ -5,8 +5,12 @@
  *   Argo CD status.history. History has no health, sync, or operation result.
  *
  * healthStatus, syncStatus
- *   Copied only when that revision is first stored, from the live application
+ *   Copied when that revision is first stored, from the live application
  *   status at that moment (status.health.status and status.sync.status).
+ *   Progressing is not a finished rollout. While this revision is still the
+ *   live synced revision, a stored Progressing health may be replaced once
+ *   by a terminal health (Healthy, Degraded, Missing, Suspended, Unknown).
+ *   Only healthStatus changes. After that write, the snapshot is frozen.
  *   A later health change stays on the application and its events.
  *   Null means this revision has no snapshot. It is not Argo's "Unknown".
  *
@@ -68,10 +72,17 @@ export interface SnapshotFill {
   stateRecorded: true;
 }
 
+export interface HealthSettle {
+  healthStatus: string;
+}
+
 export type HistoryWrite =
   | { action: 'insert'; data: DeploymentInsert }
   | { action: 'fill'; id: number; data: SnapshotFill }
+  | { action: 'settle'; id: number; data: HealthSettle }
   | { action: 'keep'; id: number };
+
+const TERMINAL_HEALTH = ['Healthy', 'Degraded', 'Missing', 'Suspended', 'Unknown'] as const;
 
 const MATCH_WINDOW_MS = 1000;
 
@@ -131,6 +142,20 @@ export function mergeDeploymentSnapshots(
       });
       return;
     }
+    const settled = terminalHealth(live.healthStatus);
+    if (
+      match.stateRecorded &&
+      latestForLiveRevision &&
+      isProgressing(match.healthStatus) &&
+      settled
+    ) {
+      writes.push({
+        action: 'settle',
+        id: match.id,
+        data: { healthStatus: settled },
+      });
+      return;
+    }
     writes.push({ action: 'keep', id: match.id });
   });
 
@@ -150,6 +175,15 @@ export function presentDeploymentSnapshot<
     healthStatus: null,
     syncStatus: null,
   };
+}
+
+function isProgressing(value: string | null): boolean {
+  return (value ?? '').trim().toLowerCase() === 'progressing';
+}
+
+function terminalHealth(value: string): string | null {
+  const normalized = value.trim().toLowerCase();
+  return TERMINAL_HEALTH.find((status) => status.toLowerCase() === normalized) ?? null;
 }
 
 function isLatestForLiveRevision(

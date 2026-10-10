@@ -475,4 +475,185 @@ describe('deployment snapshot merge', () => {
     expect(presented.healthStatus).toBeNull();
     expect(presented.syncStatus).toBeNull();
   });
+
+  it('replaces Progressing with Healthy once, then freezes the snapshot', () => {
+    const at = new Date('2026-10-08T20:09:52.000Z');
+    const fact = {
+      revision: '388858e2d3c2493275631f3b13d7fee4b855c191',
+      deployedAt: at,
+      startedAt: null,
+      environment: 'demo',
+    };
+    const progressing = stored({
+      id: 30,
+      revision: fact.revision,
+      deployedAt: at,
+      status: 'Succeeded',
+      healthStatus: 'Progressing',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const settled = mergeDeploymentSnapshots([progressing], [fact], {
+      revision: fact.revision,
+      healthStatus: 'Healthy',
+      syncStatus: 'OutOfSync',
+      deployedAt: at,
+      namespace: 'demo',
+      operationPhase: 'Failed',
+      operationRevision: fact.revision,
+    });
+
+    expect(settled).toEqual([
+      { action: 'settle', id: 30, data: { healthStatus: 'Healthy' } },
+    ]);
+    expect(progressing.status).toBe('Succeeded');
+    expect(progressing.syncStatus).toBe('Synced');
+    expect(progressing.revision).toBe(fact.revision);
+    expect(progressing.deployedAt).toBe(at);
+
+    const frozen = stored({
+      ...progressing,
+      healthStatus: 'Healthy',
+    });
+    const later = mergeDeploymentSnapshots([frozen], [fact], {
+      revision: fact.revision,
+      healthStatus: 'Degraded',
+      syncStatus: 'Synced',
+      deployedAt: at,
+      namespace: 'demo',
+      operationPhase: 'Succeeded',
+      operationRevision: fact.revision,
+    });
+    expect(later).toEqual([{ action: 'keep', id: 30 }]);
+    expect(frozen.healthStatus).toBe('Healthy');
+    expect(frozen.status).toBe('Succeeded');
+    expect(frozen.syncStatus).toBe('Synced');
+  });
+
+  it('replaces Progressing with Degraded and does not change the sync result', () => {
+    const at = new Date('2026-10-08T20:09:52.000Z');
+    const fact = {
+      revision: 'revision-progressing',
+      deployedAt: at,
+      startedAt: null,
+      environment: 'demo',
+    };
+    const progressing = stored({
+      id: 31,
+      revision: fact.revision,
+      deployedAt: at,
+      status: 'Succeeded',
+      healthStatus: 'Progressing',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const writes = mergeDeploymentSnapshots([progressing], [fact], {
+      revision: fact.revision,
+      healthStatus: 'Degraded',
+      syncStatus: 'Synced',
+      deployedAt: at,
+      namespace: 'demo',
+      operationPhase: 'Succeeded',
+      operationRevision: fact.revision,
+    });
+
+    expect(writes).toEqual([
+      { action: 'settle', id: 31, data: { healthStatus: 'Degraded' } },
+    ]);
+    expect(progressing.status).toBe('Succeeded');
+    expect(progressing.syncStatus).toBe('Synced');
+    expect(progressing.deployedAt).toBe(at);
+  });
+
+  it('leaves a stored Healthy snapshot unchanged', () => {
+    const at = new Date('2026-10-08T20:09:52.000Z');
+    const saved = stored({
+      id: 32,
+      revision: 'revision-healthy',
+      deployedAt: at,
+      status: 'Succeeded',
+      healthStatus: 'Healthy',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const writes = mergeDeploymentSnapshots(
+      [saved],
+      [{ revision: 'revision-healthy', deployedAt: at, startedAt: null, environment: 'demo' }],
+      {
+        revision: 'revision-healthy',
+        healthStatus: 'Degraded',
+        syncStatus: 'OutOfSync',
+        deployedAt: at,
+        namespace: 'demo',
+        operationPhase: 'Failed',
+        operationRevision: 'revision-healthy',
+      },
+    );
+    expect(writes).toEqual([{ action: 'keep', id: 32 }]);
+    expect(saved.healthStatus).toBe('Healthy');
+    expect(saved.status).toBe('Succeeded');
+    expect(saved.syncStatus).toBe('Synced');
+    expect(saved.deployedAt).toBe(at);
+  });
+
+  it('does not rewrite Progressing health on an older revision', () => {
+    const olderAt = new Date('2026-10-01T00:00:00.000Z');
+    const currentAt = new Date('2026-10-08T20:09:52.000Z');
+    const older = stored({
+      id: 33,
+      revision: 'older-revision',
+      deployedAt: olderAt,
+      status: 'Succeeded',
+      healthStatus: 'Progressing',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const earlierSameSha = stored({
+      id: 34,
+      revision: 'current-revision',
+      deployedAt: olderAt,
+      status: 'Succeeded',
+      healthStatus: 'Progressing',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const current = stored({
+      id: 35,
+      revision: 'current-revision',
+      deployedAt: currentAt,
+      status: 'Succeeded',
+      healthStatus: 'Progressing',
+      syncStatus: 'Synced',
+      stateRecorded: true,
+    });
+    const writes = mergeDeploymentSnapshots(
+      [older, earlierSameSha, current],
+      [
+        { revision: 'current-revision', deployedAt: currentAt, startedAt: null, environment: 'demo' },
+        { revision: 'current-revision', deployedAt: olderAt, startedAt: null, environment: 'demo' },
+        { revision: 'older-revision', deployedAt: olderAt, startedAt: null, environment: 'demo' },
+      ],
+      {
+        revision: 'current-revision',
+        healthStatus: 'Healthy',
+        syncStatus: 'Synced',
+        deployedAt: currentAt,
+        namespace: 'demo',
+        operationPhase: 'Succeeded',
+        operationRevision: 'current-revision',
+      },
+    );
+
+    expect(writes).toContainEqual({ action: 'keep', id: 33 });
+    expect(writes).toContainEqual({ action: 'keep', id: 34 });
+    expect(writes).toContainEqual({
+      action: 'settle',
+      id: 35,
+      data: { healthStatus: 'Healthy' },
+    });
+    expect(older.healthStatus).toBe('Progressing');
+    expect(earlierSameSha.healthStatus).toBe('Progressing');
+    expect(older.status).toBe('Succeeded');
+    expect(older.syncStatus).toBe('Synced');
+  });
 });

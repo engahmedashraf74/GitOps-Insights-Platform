@@ -499,6 +499,14 @@ export class ArgocdSyncService {
     );
     const operations = writes.flatMap((write) => {
       if (write.action === 'keep') return [];
+      if (write.action === 'settle') {
+        return [
+          this.prisma.deployment.update({
+            where: { id: write.id },
+            data: { healthStatus: write.data.healthStatus },
+          }),
+        ];
+      }
       if (write.action === 'insert') {
         return [
           this.prisma.deployment.create({
