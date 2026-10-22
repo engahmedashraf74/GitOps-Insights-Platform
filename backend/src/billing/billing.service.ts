@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationsService } from '../organizations/organizations.service';
-import { entitlementsFor, FREE_MAX_APPLICATIONS, isProPlan } from './plan';
+import { entitlementsFor, isProPlan, maxApplications, PAYMENTS_ENABLED, PUBLIC_LAUNCH } from './plan';
 import { SubscriptionPlan, SubscriptionStatus } from '@prisma/client';
 import Stripe from 'stripe';
 
@@ -86,8 +86,9 @@ export class BillingService {
 
   async assertCanSyncApplications(userId: number, incomingCount: number) {
     const organization = await this.organizations.ensureForUser(userId);
-    if (isProPlan(organization)) return incomingCount;
-    return Math.min(incomingCount, FREE_MAX_APPLICATIONS);
+    const cap = maxApplications(organization);
+    if (cap < 0) return incomingCount;
+    return Math.min(incomingCount, cap);
   }
 
   async createCheckoutSession(
@@ -95,6 +96,7 @@ export class BillingService {
     email: string,
     promotionCode?: string,
   ) {
+    this.assertPaymentsOpen();
     const stripe = this.requireStripe();
     const priceId = process.env.STRIPE_PRICE_ID_PRO?.trim();
     if (!priceId) {
@@ -162,6 +164,7 @@ export class BillingService {
   }
 
   async createPortalSession(userId: number) {
+    this.assertPaymentsOpen();
     const stripe = this.requireStripe();
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
@@ -228,12 +231,18 @@ export class BillingService {
 
   async requirePro(userId: number) {
     const organization = await this.organizations.ensureForUser(userId);
-    if (!isProPlan(organization)) {
-      throw new ForbiddenException(
-        'This feature requires a Pro plan. Upgrade to unlock full analytics, history, and AI.',
-      );
+    if (PUBLIC_LAUNCH || isProPlan(organization)) {
+      return organization;
     }
-    return organization;
+    throw new ForbiddenException(
+      'This feature requires a Pro plan. Upgrade to unlock full analytics, history, and AI.',
+    );
+  }
+
+  private assertPaymentsOpen() {
+    if (!PAYMENTS_ENABLED) {
+      throw new ForbiddenException('Checkout is not available.');
+    }
   }
 
   async markStubUpgrade(userId: number) {

@@ -8,7 +8,6 @@ import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { MetricCard } from "@/components/ui/metric-card";
 import { PageHeader } from "@/components/ui/page-header";
 import { MetricSkeleton } from "@/components/ui/skeleton";
-import Link from "next/link";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { isArgoConnected } from "@/lib/argo";
@@ -24,8 +23,8 @@ export default function AnalyticsPage() {
   const deployments = snapshot?.deployments ?? [];
   const connected = isArgoConnected(snapshot);
   const volume = useMemo(
-    () => buildActivitySeries(deployments, snapshot?.subscription?.fullAnalytics ? range : "7d"),
-    [deployments, range, snapshot?.subscription?.fullAnalytics],
+    () => buildActivitySeries(deployments, range),
+    [deployments, range],
   );
 
   if (!ready) return null;
@@ -36,36 +35,21 @@ export default function AnalyticsPage() {
         title="Analytics"
         description="Deployment volume and environment distribution from recorded history. Failure diagnosis stays on Intelligence."
         actions={
-          snapshot?.subscription?.fullAnalytics ? (
-            <div className="flex gap-1">
-              {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
-                <button
-                  key={item}
-                  onClick={() => setRange(item)}
-                  className={`rounded-md px-2 py-1 text-xs ${
-                    range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
-                  }`}
-                >
-                  {item.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <Link href="/upgrade" className="text-sm text-teal-300">
-              Upgrade to Pro
-            </Link>
-          )
+          <div className="flex gap-1">
+            {(["7d", "30d", "90d"] as TimeRange[]).map((item) => (
+              <button
+                key={item}
+                onClick={() => setRange(item)}
+                className={`rounded-md px-2 py-1 text-xs ${
+                  range === item ? "bg-teal-400/15 text-teal-200" : "text-zinc-400"
+                }`}
+              >
+                {item.toUpperCase()}
+              </button>
+            ))}
+          </div>
         }
       />
-      {snapshot?.subscription && !snapshot.subscription.fullAnalytics ? (
-        <p className="mb-4 rounded-lg border border-teal-400/20 bg-teal-400/5 px-3 py-2 text-sm text-zinc-300">
-          Charts use the last 7 days on Free.{" "}
-          <Link href="/upgrade" className="text-teal-300">
-            Upgrade to Pro
-          </Link>{" "}
-          for a longer history window.
-        </p>
-      ) : null}
       {error ? <ErrorState message={error} onRetry={reload} /> : null}
       {!error && !loading && !connected ? (
         <ConnectArgoEmptyState />

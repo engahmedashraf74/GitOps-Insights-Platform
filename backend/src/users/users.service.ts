@@ -19,10 +19,6 @@ const publicUser = {
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAll() {
-    return this.prisma.user.findMany({ select: publicUser });
-  }
-
   findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },

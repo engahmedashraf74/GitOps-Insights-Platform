@@ -43,50 +43,27 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Plans and billing">
+      <LegalSection title="Access">
         <p>
-          Plans and prices are shown on the <Link href="/pricing" className="text-teal-300 hover:text-teal-200">Pricing</Link> page.
-          The Free plan is $0 per month and includes the limits listed there, including a shorter
-          deployment history. Pro is a paid monthly subscription at the price shown on that page.
-          Promo codes, if accepted at checkout, change only the amount charged by the payment
-          provider. Prices can change for future billing periods. The price in effect when you
-          subscribe is the price for that purchase.
-        </p>
-        <p>
-          GitOps Insights does not store payment card numbers. Card details are entered with the
-          payment provider that presents checkout. Where Paddle is the merchant of record for a
-          purchase, Paddle processes the payment, applicable taxes, and the buyer receipt, and
-          GitOps Insights receives subscription status and billing references rather than card
-          data. The application also includes a Stripe Checkout integration. The provider shown
-          at the time you pay is the provider for that purchase.
-        </p>
-      </LegalSection>
-
-      <LegalSection title="Free plan">
-        <p>
-          The Free plan is a standing $0 plan with the limits on the Pricing page. It is not a
-          time-limited trial of Pro. A payment provider may still label a subscription as
-          trialing. That label is the provider&apos;s billing state, not a separate trial offer
-          from the Pricing page.
+          The Service is available to an authenticated account without a paid subscription.
+          Checkout and payment collection are not offered. GitOps Insights does not ask for or
+          store payment card numbers. If a payment provider processed a charge before checkout
+          was closed, that provider&apos;s terms still apply to that charge, and GitOps Insights
+          may keep the subscription status it already stored. It does not keep card numbers.
         </p>
       </LegalSection>
 
       <LegalSection title="Cancellation">
         <p>
-          You may cancel a paid subscription from the billing area of the Service or from the
-          payment provider&apos;s customer portal when that portal is available for your account.
-          Cancellation is intended to stop the next renewal. Access that has already been paid
-          for continues until the end of the current billing period, unless the provider ends it
-          sooner. The Free plan does not renew for a charge.
+          You may stop using the Service and ask us to close the account. There is no paid
+          renewal to cancel in the product while checkout is closed.
         </p>
       </LegalSection>
 
       <LegalSection title="Refunds">
         <p>
-          GitOps Insights does not publish an automatic refund program. If you believe a charge
-          was made in error, write to {CONTACT_EMAIL}. Where Paddle is the merchant of record,
-          Paddle&apos;s buyer terms may also govern that payment. Where Stripe processed the
-          payment, the charge is handled through that checkout. A refund is not guaranteed.
+          The product does not start a charge. If you believe an earlier payment provider charge
+          was made in error, write to {CONTACT_EMAIL}. A refund is not guaranteed.
         </p>
       </LegalSection>
 
@@ -134,10 +111,10 @@ export default function TermsPage() {
       <LegalSection title="Third-party services">
         <p>
           The Service depends on services you connect, including Argo CD, and on providers that
-          host the application, deliver email, or process payments. Those providers have their own
-          terms. GitOps Insights is not responsible for their availability or for changes they
-          make. Paddle, when it is the merchant of record, is an independent payment provider.
-          Stripe, when checkout uses it, is an independent payment provider.
+          host the application or deliver email. Those providers have their own terms. GitOps
+          Insights is not responsible for their availability or for changes they make. Checkout
+          is not offered. If a payment provider processed an earlier charge, that provider
+          remains responsible for that charge.
         </p>
       </LegalSection>
 
@@ -185,8 +162,8 @@ export default function TermsPage() {
 
       <LegalSection title="Changes to the Service">
         <p>
-          Features, limits, and plan contents can change. Material reductions in a paid plan will
-          be described on the Pricing page or by email to the account address when we have one.
+          Features can change. A material reduction will be described in the product or by email
+          to the account address when we have one.
           We may add, change, or remove features that are still in development, including
           analysis views.
         </p>

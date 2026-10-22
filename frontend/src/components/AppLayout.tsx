@@ -105,8 +105,6 @@ export default function AppLayout({
           onOpenSearch={() => setSearchOpen(true)}
           onOpenNotifications={() => setNotificationsOpen(true)}
           unreadCount={unread}
-          isPro={snapshot?.subscription?.isPro}
-          plan={snapshot?.subscription?.plan}
         />
         <main className="flex-1 px-4 py-6 md:px-8">{children}</main>
       </div>

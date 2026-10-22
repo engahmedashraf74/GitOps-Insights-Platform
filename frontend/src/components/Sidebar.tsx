@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Plug,
   Settings,
-  CreditCard,
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -28,7 +27,6 @@ const navigation = [
   { label: "Analytics", href: "/analytics", icon: BarChart3 },
   { label: "Intelligence", href: "/ai", icon: Sparkles },
   { label: "Integrations", href: "/integrations", icon: Plug },
-  { label: "Billing", href: "/billing", icon: CreditCard },
 ];
 
 const bottomNavigation = [

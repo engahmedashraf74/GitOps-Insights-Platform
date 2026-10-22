@@ -1,7 +1,5 @@
-"use client";
-
-import { BillingSettings } from "@/components/billing/billing-settings";
+import { redirect } from "next/navigation";
 
 export default function BillingPage() {
-  return <BillingSettings />;
+  redirect("/dashboard");
 }

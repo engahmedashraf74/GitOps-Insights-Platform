@@ -2,7 +2,6 @@ import { CONTACT_EMAIL } from "@/lib/legal";
 import Link from "next/link";
 
 const footerLinks = [
-  { href: "/pricing", label: "Pricing" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
   { href: "/contact", label: "Contact" },
@@ -18,9 +17,6 @@ export function PublicHeader() {
         <span className="whitespace-nowrap text-sm font-semibold text-zinc-100">GitOps Insights</span>
       </Link>
       <nav className="flex items-center gap-3 text-sm" aria-label="Public">
-        <Link href="/pricing" className="whitespace-nowrap text-zinc-400 hover:text-zinc-100">
-          Pricing
-        </Link>
         <Link href="/login" className="whitespace-nowrap text-zinc-400 hover:text-zinc-100">
           Sign in
         </Link>

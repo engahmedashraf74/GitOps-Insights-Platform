@@ -13,8 +13,8 @@ const topics = [
     body: "Questions about workspaces, Argo CD connections, deployment history, and how the product behaves.",
   },
   {
-    title: "Billing and subscriptions",
-    body: "Questions about the Free plan, Pro, cancellation, and charges. There is no separate billing address.",
+    title: "Billing questions",
+    body: "Checkout is not offered. Questions about an earlier charge use the same address. There is no separate billing address.",
   },
   {
     title: "Partnerships and business inquiries",

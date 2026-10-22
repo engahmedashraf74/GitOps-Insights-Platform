@@ -9,6 +9,10 @@ export const FREE_MAX_ARGOCD_INTEGRATIONS = 1;
 export const FREE_HISTORY_DAYS = 7;
 export const PRO_MONTHLY_PRICE_USD = 10;
 
+/** Every authenticated workspace gets the full product. Checkout stays closed. */
+export const PUBLIC_LAUNCH = true;
+export const PAYMENTS_ENABLED = false;
+
 export const SUPPORTED_PROMO_CODES = ['BETA100', 'STUDENT50', 'LAUNCH50'] as const;
 
 export function isProPlan(organization: Pick<
@@ -45,12 +49,13 @@ export function isProPlan(organization: Pick<
 export function maxApplications(
   organization: Organization | null | undefined,
 ): number {
+  if (PUBLIC_LAUNCH) return -1;
   if (!organization) return FREE_MAX_APPLICATIONS;
   return isProPlan(organization) ? -1 : FREE_MAX_APPLICATIONS;
 }
 
 export function historySince(organization: Organization): Date | null {
-  if (isProPlan(organization)) return null;
+  if (PUBLIC_LAUNCH || isProPlan(organization)) return null;
   const since = new Date();
   since.setDate(since.getDate() - FREE_HISTORY_DAYS);
   return since;
@@ -71,16 +76,17 @@ export interface PlanEntitlements {
 
 export function entitlementsFor(organization: Organization): PlanEntitlements {
   const pro = isProPlan(organization);
+  const open = PUBLIC_LAUNCH || pro;
   return {
     plan: organization.subscriptionPlan,
     status: organization.subscriptionStatus,
     expiresAt: organization.subscriptionExpiresAt,
     isPro: pro,
-    maxApplications: pro ? -1 : FREE_MAX_APPLICATIONS,
-    maxArgocdIntegrations: pro ? -1 : FREE_MAX_ARGOCD_INTEGRATIONS,
-    historyDays: pro ? null : FREE_HISTORY_DAYS,
-    fullAnalytics: pro,
-    fullHistory: pro,
-    aiFeatures: pro,
+    maxApplications: open ? -1 : FREE_MAX_APPLICATIONS,
+    maxArgocdIntegrations: open ? -1 : FREE_MAX_ARGOCD_INTEGRATIONS,
+    historyDays: open ? null : FREE_HISTORY_DAYS,
+    fullAnalytics: open,
+    fullHistory: open,
+    aiFeatures: open,
   };
 }

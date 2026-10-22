@@ -15,8 +15,6 @@ const pages: SearchResult[] = [
   { id: "p-analytics", title: "Analytics", subtitle: "Delivery trends", href: "/analytics", group: "Pages" },
   { id: "p-ai", title: "Intelligence", subtitle: "Risk, evidence, and next checks", href: "/ai", group: "Pages" },
   { id: "p-integrations", title: "Integrations", subtitle: "Argo CD and sources", href: "/integrations", group: "Pages" },
-  { id: "p-billing", title: "Billing", subtitle: "Plan, usage, and Stripe portal", href: "/billing", group: "Pages" },
-  { id: "p-upgrade", title: "Upgrade to Pro", subtitle: "Unlock full history and analytics", href: "/upgrade", group: "Pages" },
   { id: "p-settings", title: "Settings", subtitle: "Profile and preferences", href: "/settings", group: "Pages" },
 ];
 

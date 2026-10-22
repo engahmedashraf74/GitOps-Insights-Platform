@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { landingPreviewApps } from "@/mock/demo-data";
-import { PricingSection } from "@/components/billing/pricing-section";
 import { PublicFooter } from "@/components/legal/public-chrome";
 import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 
@@ -57,9 +56,6 @@ export default function LandingPage() {
           <span className="text-sm font-semibold">GitOps Insights</span>
         </div>
         <nav className="flex items-center gap-3 text-sm">
-          <Link href="/pricing" className="text-zinc-400 hover:text-white">
-            Pricing
-          </Link>
           <Link href="/login" className="text-zinc-400 hover:text-white">
             Sign in
           </Link>
@@ -219,17 +215,6 @@ export default function LandingPage() {
               <p className="mt-2 text-sm text-zinc-400">{reason.body}</p>
             </div>
           ))}
-        </div>
-      </section>
-
-      <section id="pricing" className="mx-auto max-w-6xl px-6 py-12">
-        <h2 className="text-2xl font-semibold">Pricing</h2>
-        <p className="mt-3 max-w-3xl text-sm text-zinc-400">
-          Start free for public beta. Pro is $10/month for unlimited history,
-          advanced analytics, and AI Deployment Analysis.
-        </p>
-        <div className="mt-8">
-          <PricingSection ctaHref="/register" />
         </div>
       </section>
 

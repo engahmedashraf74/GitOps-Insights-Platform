@@ -4,10 +4,7 @@ import { DeploymentIntelligencePanel } from "@/components/ai/deployment-intellig
 import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
 import { DeploymentHistoryTable } from "@/components/deployments/deployment-table";
 import { EventExplorer } from "@/components/events/event-explorer";
-import { UpgradeBadge } from "@/components/billing/plan-badges";
-import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/empty-state";
-import { PageHeader } from "@/components/ui/page-header";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import {
@@ -17,17 +14,14 @@ import {
   type HistoryWindow,
 } from "@/lib/intelligence";
 import { analyzeDeployment, type DeploymentAnalysis } from "@/services/billing";
-import { ApiError } from "@/services/api";
 import { getApplicationEvents } from "@/services/applications";
 import { getDeployments } from "@/services/deployments";
 import type { ApplicationEvent, Deployment } from "@/types";
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 export default function AiAnalysisPage() {
   const ready = useAuthGuard();
-  const { snapshot, applications } = useWorkspace(ready);
-  const isPro = Boolean(snapshot?.subscription?.isPro);
+  const { applications } = useWorkspace(ready);
   const [applicationId, setApplicationId] = useState<number | null>(null);
   const [result, setResult] = useState<DeploymentAnalysis | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
@@ -42,16 +36,16 @@ export default function AiAnalysisPage() {
   const [environment, setEnvironment] = useState("all");
 
   useEffect(() => {
-    if (!isPro || applications.length === 0) return;
+    if (applications.length === 0) return;
     const requested = Number(new URLSearchParams(window.location.search).get("applicationId"));
     setApplicationId((current) => {
       if (applications.some((application) => application.id === requested)) return requested;
       return current ?? applications[0].id;
     });
-  }, [applications, isPro]);
+  }, [applications]);
 
   useEffect(() => {
-    if (!ready || !isPro || applicationId == null) return;
+    if (!ready || applicationId == null) return;
     let cancelled = false;
     setLoading(true);
     setError("");
@@ -64,10 +58,6 @@ export default function AiAnalysisPage() {
       .catch((err: unknown) => {
         if (cancelled) return;
         setResult(null);
-        if (err instanceof ApiError && err.status === 403) {
-          setError("Deployment intelligence requires Pro.");
-          return;
-        }
         setError(err instanceof Error ? err.message : "Could not load deployment intelligence.");
       })
       .finally(() => {
@@ -76,10 +66,10 @@ export default function AiAnalysisPage() {
     return () => {
       cancelled = true;
     };
-  }, [applicationId, isPro, ready, reloadToken]);
+  }, [applicationId, ready, reloadToken]);
 
   useEffect(() => {
-    if (!ready || !isPro || applicationId == null) return;
+    if (!ready || applicationId == null) return;
     let cancelled = false;
     setHistoryError("");
     void getDeployments(applicationId)
@@ -94,10 +84,10 @@ export default function AiAnalysisPage() {
     return () => {
       cancelled = true;
     };
-  }, [applicationId, isPro, ready, reloadToken]);
+  }, [applicationId, ready, reloadToken]);
 
   useEffect(() => {
-    if (!ready || !isPro || applicationId == null) return;
+    if (!ready || applicationId == null) return;
     let cancelled = false;
     setEventsError("");
     void getApplicationEvents(applicationId)
@@ -112,7 +102,7 @@ export default function AiAnalysisPage() {
     return () => {
       cancelled = true;
     };
-  }, [applicationId, isPro, ready, reloadToken]);
+  }, [applicationId, ready, reloadToken]);
 
   const application = applications.find((item) => item.id === applicationId);
   const environments = useMemo(
@@ -148,7 +138,6 @@ export default function AiAnalysisPage() {
 
   return (
     <div className="mx-auto max-w-7xl">
-      {isPro ? (
         <div className="space-y-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <label className="block max-w-md text-sm text-[var(--text-secondary)]">
@@ -298,24 +287,6 @@ export default function AiAnalysisPage() {
             <p className="text-sm text-[var(--text-secondary)]">No applications found.</p>
           ) : null}
         </div>
-      ) : (
-        <div>
-          <PageHeader
-            title="Deployment intelligence"
-            description="Failure diagnosis, evidence, and deployment history for a selected application."
-          />
-          <div className="rounded-xl border border-[var(--accent)]/25 bg-[var(--accent-dim)] p-6">
-            <UpgradeBadge />
-            <p className="mt-3 text-sm text-[var(--text-secondary)]">
-              Free workspaces cannot access deployment intelligence. Upgrade to Pro for risk,
-              stability, evidence-backed diagnosis, and deployment history.
-            </p>
-            <Link href="/upgrade" className="mt-4 inline-block">
-              <Button>Upgrade to Pro</Button>
-            </Link>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

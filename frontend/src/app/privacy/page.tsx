@@ -28,7 +28,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>account information, such as your name, email address, and password</li>
           <li>authentication information, including a session token stored in the browser</li>
-          <li>billing and subscription status, plan, and payment-provider references</li>
+          <li>subscription status already stored, if a payment provider processed a charge before checkout was closed</li>
           <li>messages you send to the contact address</li>
         </ul>
         <p>
@@ -38,13 +38,10 @@ export default function PrivacyPage() {
 
       <LegalSection title="Billing information">
         <p>
-          Payment card numbers, card security codes, and full payment credentials are not stored
-          by GitOps Insights. They are processed by the payment provider that presents checkout.
-          Where Paddle is the merchant of record, Paddle processes the card payment and GitOps
-          Insights receives subscription status and billing references. The application also
-          includes a Stripe Checkout integration. In that case Stripe processes the card payment,
-          and the Service stores Stripe customer and subscription identifiers needed to show your
-          plan. We do not claim a PCI certification.
+          GitOps Insights does not collect or store payment card numbers. Checkout is not
+          offered. If a payment provider processed a charge before checkout was closed, that
+          provider handled the card data, and the Service may still store the subscription
+          reference it already received. We do not claim a PCI certification.
         </p>
       </LegalSection>
 
@@ -76,8 +73,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-1 pl-5">
           <li>to create and secure your account</li>
           <li>to operate the workspace, history, and analysis views</li>
-          <li>to bill for a paid plan and to apply the plan limits</li>
-          <li>to answer support and billing questions you send us</li>
+          <li>to answer support questions you send us</li>
           <li>to protect the Service against abuse</li>
           <li>to meet a legal obligation if one applies</li>
         </ul>
@@ -89,9 +85,8 @@ export default function PrivacyPage() {
 
       <LegalSection title="Third-party processors">
         <p>
-          We use other providers only to run the Service. Payment processing is done by Paddle
-          when Paddle is the merchant of record for that purchase, and by Stripe when checkout
-          uses the Stripe integration. Email for account messages is sent through the mail
+          We use other providers only to run the Service. Checkout is not offered, so the
+          Service does not send new card payments to a payment provider. Email for account messages is sent through the mail
           transport configured for the Service. The application is hosted by the infrastructure
           provider that runs it. The product does not name that host here, and it does not name
           Cloudflare as a processor, because the repository does not configure Cloudflare. Argo
@@ -101,9 +96,9 @@ export default function PrivacyPage() {
 
       <LegalSection title="Retention">
         <p>
-          Account information is kept while the account is open. Deployment history follows the
-          plan limits on the Pricing page: a shorter window on the Free plan and a longer history
-          on Pro. We do not publish a separate retention schedule. If you ask us to delete the
+          Account information is kept while the account is open. Deployment history is kept
+          with the account rather than cut to a shorter free-plan window. We do not publish a
+          separate retention schedule. If you ask us to delete the
           account, we delete or disconnect the account data we still hold, except where a billing,
           security, or legal record has to be kept. Integration credentials are removed when you
           remove the integration or the account.

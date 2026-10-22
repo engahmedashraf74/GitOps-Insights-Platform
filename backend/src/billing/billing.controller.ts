@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BillingService } from './billing.service';
 import { JwtAuth } from '../common/decorators/jwt-auth.decorator';
@@ -53,14 +53,8 @@ export class BillingController {
   @ApiOperation({
     summary: 'Development-only Pro activation when Stripe webhooks are unavailable',
   })
-  activatePro(@CurrentUser() user: JwtUser) {
-    if (process.env.NODE_ENV === 'production') {
-      return {
-        ok: false,
-        message: 'Use Stripe Checkout in production.',
-      };
-    }
-    return this.billing.markStubUpgrade(user.userId);
+  activatePro(@CurrentUser() _user: JwtUser) {
+    throw new ForbiddenException('Checkout is not available.');
   }
 
   @Get('ai/status')

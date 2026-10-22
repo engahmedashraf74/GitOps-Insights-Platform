@@ -26,8 +26,8 @@ export class DeploymentsController {
   constructor(private readonly deploymentsService: DeploymentsService) {}
 
   @Post()
-  create(@Body() body: CreateDeploymentDto) {
-    return this.deploymentsService.create(body);
+  create(@CurrentUser() user: JwtUser, @Body() body: CreateDeploymentDto) {
+    return this.deploymentsService.create(user.userId, body);
   }
 
   @Get()

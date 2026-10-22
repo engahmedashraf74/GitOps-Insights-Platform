@@ -5,7 +5,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { OrganizationsService } from '../organizations/organizations.service';
-import { isProPlan } from './plan';
+import { isProPlan, PUBLIC_LAUNCH } from './plan';
 import type { JwtUser } from '../common/types/jwt-user';
 
 @Injectable()
@@ -19,6 +19,9 @@ export class ProPlanGuard implements CanActivate {
       throw new ForbiddenException('Authentication required');
     }
     const organization = await this.organizations.ensureForUser(user.userId);
+    if (PUBLIC_LAUNCH) {
+      return true;
+    }
     if (!isProPlan(organization)) {
       throw new ForbiddenException(
         'This feature requires a Pro plan. Upgrade to unlock it.',

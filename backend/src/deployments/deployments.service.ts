@@ -17,7 +17,26 @@ export class DeploymentsService {
     private readonly organizations: OrganizationsService,
   ) {}
 
-  create(dto: CreateDeploymentDto) {
+  async create(userId: number, dto: CreateDeploymentDto) {
+    const projectIds = await this.organizations.getAccessibleProjectIds(userId);
+    const application = await this.prisma.application.findFirst({
+      where: { id: dto.applicationId, projectId: { in: projectIds } },
+      select: { id: true },
+    });
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    if (dto.environmentId != null) {
+      const environment = await this.prisma.environment.findFirst({
+        where: { id: dto.environmentId, applicationId: application.id },
+        select: { id: true },
+      });
+      if (!environment) {
+        throw new NotFoundException('Environment not found');
+      }
+    }
+
     return this.prisma.deployment.create({
       data: {
         revision: dto.revision,

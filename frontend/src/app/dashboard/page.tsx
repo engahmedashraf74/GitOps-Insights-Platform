@@ -2,7 +2,6 @@
 
 import { ApplicationCard } from "@/components/applications/application-card";
 import { SuccessFailureChart } from "@/components/charts/success-failure-chart";
-import { PlanUsageBar } from "@/components/billing/plan-usage-bar";
 import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-empty-state";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/empty-state";
@@ -76,18 +75,6 @@ export default function DashboardPage() {
         }
       />
 
-      {snapshot?.subscription ? (
-        <div className="mb-6">
-          <PlanUsageBar
-            applications={snapshot.usage?.applications ?? applications.length}
-            applicationLimit={snapshot.subscription.maxApplications}
-            isPro={snapshot.subscription.isPro}
-            status={snapshot.subscription.status}
-            plan={snapshot.subscription.plan === "PRO" ? "pro" : "free"}
-          />
-        </div>
-      ) : null}
-
       {error ? (
         <ErrorState message={error} onRetry={reload} />
       ) : loading ? (
@@ -158,15 +145,9 @@ export default function DashboardPage() {
             Understand deployment risk, evidence, root cause, and what to check next.
           </p>
         </div>
-        {snapshot?.subscription?.aiFeatures ? (
-          <Link href="/ai" className="shrink-0 text-sm font-medium text-[var(--accent-strong)]">
-            Open Intelligence →
-          </Link>
-        ) : (
-          <Link href="/upgrade" className="shrink-0 text-sm font-medium text-[var(--accent-strong)]">
-            Upgrade to Pro →
-          </Link>
-        )}
+        <Link href="/ai" className="shrink-0 text-sm font-medium text-[var(--accent-strong)]">
+          Open Intelligence →
+        </Link>
       </section>
       </>
       ) : null}

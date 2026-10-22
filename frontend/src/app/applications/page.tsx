@@ -5,7 +5,6 @@ import { ConnectArgoEmptyState } from "@/components/integrations/connect-argo-em
 import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
-import { PlanUsageBar } from "@/components/billing/plan-usage-bar";
 import { SearchInput } from "@/components/ui/search-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -69,17 +68,6 @@ export default function ApplicationsPage() {
           ) : undefined
         }
       />
-      {snapshot?.subscription ? (
-        <div className="mb-5">
-          <PlanUsageBar
-            applications={snapshot.usage?.applications ?? applications.length}
-            applicationLimit={snapshot.subscription.maxApplications}
-            isPro={snapshot.subscription.isPro}
-            status={snapshot.subscription.status}
-            plan={snapshot.subscription.plan === "PRO" ? "pro" : "free"}
-          />
-        </div>
-      ) : null}
       {connected ? (
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
           <SearchInput
