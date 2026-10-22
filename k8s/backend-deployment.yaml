@@ -120,10 +120,10 @@ spec:
                   key: STRIPE_WEBHOOK_SECRET      
 
             - name: FRONTEND_URL
-              value: http://192.168.49.2:30883
+              value: https://gitops-insights.com
 
             - name: APP_URL
-              value: http://192.168.49.2:30883
+              value: https://gitops-insights.com
         
             - name: ARGOCD_URL
               value: "https://argocd-server.argocd.svc.cluster.local"
