@@ -7,4 +7,7 @@ frontend/.next
 backend/.env
 frontend/.env
 
+# Compose secrets for the temporary EC2 test. .env.example stays committable.
+/.env
+
 *.log
