@@ -90,7 +90,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?Set NEXT_PUBLIC_API_URL in .env}
+        # Compiled into the browser bundle by `next build`. A runtime variable cannot change it.
+        NEXT_PUBLIC_API_URL: https://api.gitops-insights.com
     restart: unless-stopped
     environment:
       NODE_OPTIONS: --max-old-space-size=256
