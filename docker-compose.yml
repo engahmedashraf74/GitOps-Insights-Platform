@@ -55,6 +55,8 @@ services:
       APP_URL: ${APP_URL:?Set APP_URL in .env}
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
       ARGOCD_ENV_FALLBACK: "false"
+      CONNECTOR_API_URL: ${CONNECTOR_API_URL:-https://api.gitops-insights.com}
+      CONNECTOR_IMAGE: ${CONNECTOR_IMAGE:-gitops-insights-connector:0.1.0}
     command:
       - sh
       - -c

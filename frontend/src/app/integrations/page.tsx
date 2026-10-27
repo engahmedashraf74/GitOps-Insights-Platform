@@ -16,6 +16,7 @@ import {
 } from "@/services/integrations";
 import { syncApplications } from "@/services/applications";
 import type { Integration } from "@/types";
+import { PrivateClusterPanel } from "@/components/integrations/private-cluster-panel";
 import { validateArgoServerUrl } from "@/lib/argo";
 import { GitBranch, GitCommitHorizontal, MessageSquare, Plug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -196,6 +197,8 @@ export default function IntegrationsPage() {
         })}
       </div>
 
+      <PrivateClusterPanel />
+
       <Modal
         open={open}
         title="Connect Argo CD"
@@ -216,8 +219,8 @@ export default function IntegrationsPage() {
           <p className="text-xs leading-5 text-zinc-400">
             The AWS server makes this connection. Use a public HTTPS address.
             localhost, a Kubernetes service name, and a private address such as
-            192.168.49.2 cannot be reached. A private cluster needs a separate
-            outbound connection, which is not part of this setup.
+            192.168.49.2 cannot be reached. A private cluster uses Connect
+            Private Cluster on this page. This form does not reach it.
           </p>
           <div>
             <label className="mb-1.5 block text-sm text-zinc-300" htmlFor="argo-url">

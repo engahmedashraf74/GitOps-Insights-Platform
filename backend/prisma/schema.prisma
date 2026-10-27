@@ -28,6 +28,14 @@ enum IntegrationStatus {
   coming_soon
 }
 
+enum ConnectorStatus {
+  pending
+  connected
+  disconnected
+  error
+  revoked
+}
+
 enum SubscriptionPlan {
   FREE
   PRO
@@ -83,6 +91,7 @@ model Organization {
   members        OrganizationMember[]
   projects       Project[]
   integrations   Integration[]
+  connectors     Connector[]
   notifications  Notification[]
   billingCustomer BillingCustomer?
   checkouts      BillingCheckoutSession[]
@@ -216,6 +225,41 @@ model Integration {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, provider])
+}
+
+model Connector {
+  id               Int             @id @default(autoincrement())
+  organizationId   Int
+  name             String
+  argoUrl          String
+  customCa         Boolean         @default(false)
+  status           ConnectorStatus @default(pending)
+  credentialHash   String?         @unique
+  lastSeenAt       DateTime?
+  lastError        String?
+  applicationsSeen Int             @default(0)
+  projectsSeen     Int             @default(0)
+  revokedAt        DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  enrollments  ConnectorEnrollment[]
+
+  @@index([organizationId])
+}
+
+model ConnectorEnrollment {
+  id          Int       @id @default(autoincrement())
+  connectorId Int
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  connector Connector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@index([connectorId])
 }
 
 model Notification {

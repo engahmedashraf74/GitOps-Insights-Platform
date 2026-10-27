@@ -5,7 +5,12 @@ import { ArgocdService } from './argocd.service';
 import { decryptSecret } from '../common/crypto/secret-box';
 import { IntegrationProvider, IntegrationStatus } from '@prisma/client';
 import type { ArgoConnection } from './argocd.service';
-import type { MappedArgoApplication, MappedArgoProject } from './argo-application';
+import {
+  mapArgoApplication,
+  mapArgoProject,
+  type MappedArgoApplication,
+  type MappedArgoProject,
+} from './argo-application';
 import { mergeDeploymentSnapshots } from './deployment-history';
 import { maxApplications } from '../billing/plan';
 
@@ -342,6 +347,47 @@ export class ArgocdSyncService {
       lastSyncedAt,
       source,
     };
+  }
+
+  /**
+   * Saves applications and projects already read inside a customer cluster.
+   * This does not open a connection to Argo CD and does not remove anything.
+   */
+  async importDiscovered(
+    organizationId: number,
+    userId: number,
+    rawApplications: unknown[],
+    rawProjects: unknown[],
+  ): Promise<{ applications: number; projects: number }> {
+    const projects = rawProjects
+      .map((item) => mapArgoProject(item))
+      .filter((item): item is MappedArgoProject => item !== null);
+    const discovered = rawApplications
+      .map((item) => mapArgoApplication(item))
+      .filter((item): item is MappedArgoApplication => item !== null);
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+    const cap = maxApplications(organization);
+    const toImport = cap < 0 ? discovered : discovered.slice(0, cap);
+
+    for (const project of projects) {
+      await this.upsertProject(organizationId, userId, project);
+    }
+
+    let applications = 0;
+    for (const item of toImport) {
+      try {
+        await this.upsertApplication(organizationId, userId, item);
+        applications += 1;
+      } catch (error) {
+        this.logger.error(
+          `[argocd-sync] connector persist failed org=${organizationId} app=${item.name} ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+
+    return { applications, projects: projects.length };
   }
 
   private async connectionForOrganization(
