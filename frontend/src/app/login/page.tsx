@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandMark } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -74,7 +75,8 @@ export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden flex-col justify-between border-r border-white/8 bg-[#0c0c0e] p-10 lg:flex">
-        <Link href="/" className="text-sm font-semibold">
+        <Link href="/" className="flex items-center gap-2 text-sm font-semibold">
+          <BrandMark className="h-8 w-auto max-w-14" />
           GitOps Insights
         </Link>
         <div>

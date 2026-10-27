@@ -1,3 +1,4 @@
+import { BrandMark } from "@/components/brand-mark";
 import { CONTACT_EMAIL } from "@/lib/legal";
 import Link from "next/link";
 
@@ -11,9 +12,7 @@ export function PublicHeader() {
   return (
     <header className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-5 sm:px-6">
       <Link href="/" className="flex items-center gap-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-400/15 text-sm font-semibold text-teal-300">
-          GI
-        </span>
+        <BrandMark className="h-8 w-auto max-w-14" />
         <span className="whitespace-nowrap text-sm font-semibold text-zinc-100">GitOps Insights</span>
       </Link>
       <nav className="flex items-center gap-3 text-sm" aria-label="Public">

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { completeOnboarding, getOnboardingState, saveOnboardingState } from "@/lib/onboarding";
 import { saveWorkspace, getWorkspace } from "@/lib/settings";
+import { validateArgoServerUrl } from "@/lib/argo";
 import { connectArgoCd } from "@/services/integrations";
 import { Plug, Workflow } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -27,7 +28,7 @@ export function OnboardingWizard() {
     },
     {
       title: "Connect Argo CD",
-      body: "Applications are imported from Argo CD. The token is stored encrypted on the server.",
+      body: "Enter a public HTTPS URL and an API token with get access to applications and projects. The AWS server tests the connection, then imports what that token can read.",
       icon: <Plug size={20} />,
     },
   ];
@@ -57,15 +58,21 @@ export function OnboardingWizard() {
         setError("Enter the Argo CD URL and token, or skip setup.");
         return;
       }
-      try {
-        new URL(argoUrl.trim());
-      } catch {
-        setError("Enter a valid Argo CD URL.");
+      const problem = validateArgoServerUrl(argoUrl);
+      if (problem) {
+        setError(problem);
         return;
       }
       setLoading(true);
       try {
-        await connectArgoCd(argoUrl.trim(), argoToken.trim());
+        const result = await connectArgoCd(argoUrl.trim(), argoToken.trim());
+        if (result.syncError) {
+          setError(
+            `Argo CD is saved, but the first sync failed. ${result.syncError} Open Integrations and use Sync applications. The token does not need to be entered again.`,
+          );
+          setLoading(false);
+          return;
+        }
         saveOnboardingState({
           ...getOnboardingState(),
           integrationReviewed: true,
@@ -118,18 +125,30 @@ export function OnboardingWizard() {
           ) : null}
           {step === 1 ? (
             <>
-              <Input
-                value={argoUrl}
-                onChange={(event) => setArgoUrl(event.target.value)}
-                placeholder="https://argocd.example.com"
-              />
+              <div>
+                <label className="mb-1.5 block text-sm text-zinc-300" htmlFor="onboarding-argo-url">
+                  Argo CD server URL
+                </label>
+                <Input
+                  id="onboarding-argo-url"
+                  value={argoUrl}
+                  onChange={(event) => setArgoUrl(event.target.value)}
+                  placeholder="https://argocd.example.com"
+                  autoComplete="off"
+                />
+              </div>
               <PasswordInput
                 id="onboarding-argo-token"
-                label="Token"
+                label="Argo CD API token"
                 value={argoToken}
                 onChange={(event) => setArgoToken(event.target.value)}
-                autoComplete="off"
+                autoComplete="new-password"
+                placeholder="Paste an API token"
               />
+              <p className="text-xs leading-5 text-zinc-500">
+                localhost, a Kubernetes service name, and a private Minikube
+                address are not reachable from AWS.
+              </p>
             </>
           ) : null}
         </div>

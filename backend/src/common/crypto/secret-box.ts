@@ -2,12 +2,21 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
 const ALGORITHM = 'aes-256-gcm';
 
+export class EncryptionConfigError extends Error {
+  constructor() {
+    super(
+      'Integration encryption is not configured. Set INTEGRATION_ENCRYPTION_KEY before storing Argo CD tokens.',
+    );
+    this.name = 'EncryptionConfigError';
+  }
+}
+
 function encryptionKey(): Buffer {
-  const secret =
-    process.env.INTEGRATION_ENCRYPTION_KEY ||
-    process.env.JWT_SECRET ||
-    'my-secret-key';
-  return Buffer.from(secret.padEnd(32, '0').slice(0, 32), 'utf8');
+  const configured = process.env.INTEGRATION_ENCRYPTION_KEY || process.env.JWT_SECRET || '';
+  if (!configured.trim()) {
+    throw new EncryptionConfigError();
+  }
+  return Buffer.from(configured.padEnd(32, '0').slice(0, 32), 'utf8');
 }
 
 export function encryptSecret(value: string): string {

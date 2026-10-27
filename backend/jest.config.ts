@@ -9,13 +9,22 @@ const { config: tsconfig } = ts.readConfigFile(
   ts.sys.readFile,
 );
 const paths = tsconfig?.compilerOptions?.paths ?? {};
+const backendRoot = process.cwd();
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: '.',
+  rootDir: backendRoot,
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        // TypeScript 6 requires an explicit rootDir when each spec is compiled alone.
+        tsconfig: {
+          rootDir: backendRoot,
+        },
+      },
+    ],
   },
   moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
   collectCoverageFrom: [

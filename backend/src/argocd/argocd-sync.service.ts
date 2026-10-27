@@ -226,7 +226,7 @@ export class ArgocdSyncService {
         `[argocd-sync] connection failed org=${organizationId} status=${probe.status} error=${probe.error}`,
       );
       throw new BadRequestException(
-        `Argo CD connection failed (HTTP ${probe.status}).`,
+        probe.error || 'Argo CD could not be reached.',
       );
     }
     this.logger.log(

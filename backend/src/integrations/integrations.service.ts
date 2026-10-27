@@ -84,7 +84,7 @@ export class IntegrationsService {
     const result = await this.argocd.testConnection(url, token);
     if (!result.ok) {
       throw new BadRequestException(
-        `Argo CD rejected the credentials (HTTP ${result.status}).`,
+        result.error || 'Argo CD could not be reached.',
       );
     }
     return { ok: true, message: 'Connection succeeded. Token was not stored.' };
@@ -95,7 +95,7 @@ export class IntegrationsService {
     const result = await this.argocd.testConnection(url, token);
     if (!result.ok) {
       throw new BadRequestException(
-        `Unable to connect to Argo CD (HTTP ${result.status}).`,
+        result.error || 'Argo CD could not be reached.',
       );
     }
 

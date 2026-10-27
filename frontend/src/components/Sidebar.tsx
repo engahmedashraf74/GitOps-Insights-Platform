@@ -12,6 +12,7 @@ import {
   Settings,
   Sparkles,
 } from "lucide-react";
+import { BrandMark } from "@/components/brand-mark";
 import { cn } from "@/lib/cn";
 
 type SidebarProps = {
@@ -55,9 +56,9 @@ export default function Sidebar({ collapsed, onNavigate }: SidebarProps) {
           collapsed ? "justify-center" : "gap-3 px-2",
         )}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal-400/15 text-sm font-bold text-teal-300">
-          GI
-        </div>
+        <BrandMark
+          className={collapsed ? "h-8 w-auto max-w-12" : "h-9 w-auto max-w-16"}
+        />
         {collapsed ? null : (
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold text-white">

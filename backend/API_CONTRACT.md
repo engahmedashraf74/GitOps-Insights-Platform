@@ -135,7 +135,7 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 
 ## Secrets
 
-- `INTEGRATION_ENCRYPTION_KEY` (optional, 32+ chars) encrypts Argo tokens.
+- `INTEGRATION_ENCRYPTION_KEY` encrypts Argo tokens. If it is unset, `JWT_SECRET` is used so existing ciphertext still decrypts. Encryption fails when both are missing.
 - `JWT_SECRET` defaults to `my-secret-key` so existing tokens keep working.
 - `STRIPE_SECRET_KEY` — Stripe secret key for Checkout and webhooks.
 - `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (`whsec_...`).

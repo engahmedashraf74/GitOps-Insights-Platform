@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import https from 'node:https';
+import { isIP } from 'node:net';
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import {
   extractArgoItems,
@@ -6,8 +9,15 @@ import {
   type MappedArgoApplication,
   type MappedArgoProject,
 } from './argo-application';
-
-process.env.NODE_TLS_REJECT_UNAUTHORIZED ??= '0';
+import {
+  ArgoUrlError,
+  assertSafeArgoUrl,
+  createPinnedLookup,
+  describeArgoHttpStatus,
+  describeArgoTransportError,
+  redactSecrets,
+  type SafeArgoDestination,
+} from './argo-url';
 
 export interface ArgoConnection {
   url: string;
@@ -90,24 +100,52 @@ export class ArgocdService {
     token: string,
   ): Promise<{ ok: boolean; status: number; error?: string }> {
     try {
-      const response = await this.rawRequest(
-        `${url.replace(/\/$/, '')}/api/v1/applications?limit=1`,
+      const target = await this.safeDestination(url);
+      const applications = await this.rawRequest(
+        `${target.url.origin}/api/v1/applications?limit=1`,
         token,
+        target.addresses,
       );
-      if (!response.ok) {
-        const body = await response.text();
+      if (!applications.ok) {
         return {
           ok: false,
-          status: response.status,
-          error: body.slice(0, 300),
+          status: applications.status,
+          error: describeArgoHttpStatus(applications.status, 'applications'),
         };
       }
-      return { ok: true, status: response.status };
+      const projects = await this.rawRequest(
+        `${target.url.origin}/api/v1/projects`,
+        token,
+        target.addresses,
+      );
+      if (!projects.ok) {
+        return {
+          ok: false,
+          status: projects.status,
+          error: describeArgoHttpStatus(projects.status, 'projects'),
+        };
+      }
+      return { ok: true, status: projects.status };
     } catch (error) {
+      if (error instanceof BadRequestException) {
+        const response = error.getResponse();
+        const message =
+          typeof response === 'string'
+            ? response
+            : (response as { message?: string | string[] }).message;
+        return {
+          ok: false,
+          status: 0,
+          error: Array.isArray(message) ? message.join(', ') : message || 'Argo CD could not be reached.',
+        };
+      }
       return {
         ok: false,
         status: 0,
-        error: error instanceof Error ? error.message : String(error),
+        error:
+          error instanceof ArgoUrlError
+            ? error.message
+            : describeArgoTransportError(error),
       };
     }
   }
@@ -120,16 +158,20 @@ export class ArgocdService {
       );
     }
 
-    const response = await this.rawRequest(`${resolved.url}${path}`, resolved.token);
+    const target = await this.safeDestination(resolved.url);
+    const response = await this.rawRequest(
+      `${target.url.origin}${path}`,
+      resolved.token,
+      target.addresses,
+    );
     this.logger.log(`Argo CD ${path} → ${response.status}`);
     const body = await response.text();
     if (!response.ok) {
       this.logger.error(
-        `Argo CD API error ${response.status} ${path}: ${body.slice(0, 500)}`,
+        `Argo CD API error ${response.status} ${path}: ${redactSecrets(body).slice(0, 180)}`,
       );
-      throw new BadRequestException(
-        `Argo CD request failed (${response.status}) for ${path}.`,
-      );
+      const resource = path.includes('/projects') ? 'projects' : 'applications';
+      throw new BadRequestException(describeArgoHttpStatus(response.status, resource));
     }
     if (!body) {
       return {} as T;
@@ -137,12 +179,76 @@ export class ArgocdService {
     return JSON.parse(body) as T;
   }
 
-  private async rawRequest(url: string, token: string) {
-    return fetch(url, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Cookie: `argocd.token=${token}`,
-      },
-    });
+  private async safeDestination(raw: string): Promise<SafeArgoDestination> {
+    try {
+      return await assertSafeArgoUrl(raw, {
+        production: process.env.NODE_ENV === 'production',
+      });
+    } catch (error) {
+      if (error instanceof ArgoUrlError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
+
+  private async rawRequest(url: string, token: string, addresses: readonly string[]) {
+    const ca = loadCaCertificate();
+    const headers = {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    };
+    return pinnedRequest(url, headers, addresses, ca);
+  }
+}
+
+function loadCaCertificate(): string | undefined {
+  const file = process.env.ARGOCD_CA_FILE?.trim();
+  if (file) {
+    try {
+      return readFileSync(file, 'utf8');
+    } catch {
+      throw new BadRequestException(
+        'ARGOCD_CA_FILE is set, but the certificate file could not be read.',
+      );
+    }
+  }
+  const inline = process.env.ARGOCD_CA_CERT?.trim();
+  if (!inline) return undefined;
+  return inline.replaceAll('\\n', '\n');
+}
+
+function pinnedRequest(
+  url: string,
+  headers: Record<string, string>,
+  addresses: readonly string[],
+  ca?: string,
+): Promise<Response> {
+  const hostname = new URL(url).hostname.replace(/^\[|\]$/g, '');
+  const lookup = createPinnedLookup(addresses, {
+    production: process.env.NODE_ENV === 'production',
+  });
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: 'GET',
+        headers,
+        lookup,
+        servername: isIP(hostname) ? undefined : hostname,
+        rejectUnauthorized: true,
+        ca,
+        timeout: 12_000,
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf8');
+          resolve(new Response(body, { status: res.statusCode ?? 0 }));
+        });
+      },
+    );
+    req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })));
+    req.on('error', reject);
+    req.end();
+  });
 }

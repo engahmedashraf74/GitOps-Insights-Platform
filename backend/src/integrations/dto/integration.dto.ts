@@ -2,7 +2,7 @@ import { IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ConnectArgoCdDto {
-  @ApiProperty({ example: 'https://argocd-server.argocd.svc' })
+  @ApiProperty({ example: 'https://argocd.example.com' })
   @IsString()
   @MinLength(8)
   url: string;

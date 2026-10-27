@@ -5,15 +5,20 @@ export async function listIntegrations(): Promise<Integration[]> {
   return apiFetch<Integration[]>("/integrations");
 }
 
-export async function testArgoCd(url: string, token: string) {
-  return apiFetch<{ ok: boolean; message: string }>("/integrations/argocd/test", {
-    method: "POST",
-    body: JSON.stringify({ url, token }),
-  });
-}
+export type ArgoConnectResult = {
+  provider: string;
+  status: string;
+  url: string | null;
+  lastSyncedAt: string | null;
+  sync: {
+    applicationsFetched?: number;
+    projectsFetched?: number;
+  } | null;
+  syncError?: string;
+};
 
 export async function connectArgoCd(url: string, token: string) {
-  return apiFetch("/integrations/argocd/connect", {
+  return apiFetch<ArgoConnectResult>("/integrations/argocd/connect", {
     method: "POST",
     body: JSON.stringify({ url, token }),
   });

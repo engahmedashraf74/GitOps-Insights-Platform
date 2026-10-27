@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { landingPreviewApps } from "@/mock/demo-data";
+import { BrandMark } from "@/components/brand-mark";
 import { PublicFooter } from "@/components/legal/public-chrome";
 import { HealthBadge, SyncBadge } from "@/components/ui/status-badge";
 
@@ -50,9 +51,7 @@ export default function LandingPage() {
     <div className="min-h-screen">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
         <div className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-400/15 text-sm font-semibold text-teal-300">
-            GI
-          </span>
+          <BrandMark className="h-8 w-auto max-w-14" />
           <span className="text-sm font-semibold">GitOps Insights</span>
         </div>
         <nav className="flex items-center gap-3 text-sm">

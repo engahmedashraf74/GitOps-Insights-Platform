@@ -13,17 +13,11 @@ import {
   connectArgoCd,
   disconnectArgoCd,
   listIntegrations,
-  testArgoCd,
 } from "@/services/integrations";
 import { syncApplications } from "@/services/applications";
 import type { Integration } from "@/types";
-import {
-  CheckCircle2,
-  GitBranch,
-  GitCommitHorizontal,
-  MessageSquare,
-  Plug,
-} from "lucide-react";
+import { validateArgoServerUrl } from "@/lib/argo";
+import { GitBranch, GitCommitHorizontal, MessageSquare, Plug } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 const icons: Record<string, typeof Plug> = {
@@ -41,9 +35,8 @@ export default function IntegrationsPage() {
   const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [token, setToken] = useState("");
-  const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [testMessage, setTestMessage] = useState("");
+  const [formMessage, setFormMessage] = useState("");
 
   const refresh = useCallback(async () => {
     const data = await listIntegrations();
@@ -59,33 +52,41 @@ export default function IntegrationsPage() {
 
   if (!ready) return null;
 
-  async function testConnection() {
-    setTesting(true);
-    setTestMessage("");
-    try {
-      const result = await testArgoCd(url.trim(), token.trim());
-      setTestMessage(result.message || "Connection succeeded.");
-    } catch (err) {
-      setTestMessage(err instanceof Error ? err.message : "Connection failed.");
-    } finally {
-      setTesting(false);
-    }
+  function formError(): string | null {
+    if (!url.trim() || !token.trim()) return "Enter the Argo CD URL and token.";
+    if (token.trim().length < 8) return "The token is too short.";
+    return validateArgoServerUrl(url);
   }
 
   async function connect() {
-    if (!url.trim() || !token.trim()) {
-      push("Enter the Argo CD URL and token.", "error");
+    const problem = formError();
+    setFormMessage("");
+    if (problem) {
+      setFormMessage(problem);
       return;
     }
     setSaving(true);
     try {
-      await connectArgoCd(url.trim(), token.trim());
+      const result = await connectArgoCd(url.trim(), token.trim());
       setToken("");
       setOpen(false);
       await refresh();
-      push("Argo CD connected. Applications were imported.", "success");
+      if (result.syncError) {
+        push(
+          `Argo CD is saved. The first sync failed: ${result.syncError} Use Sync applications. The token does not need to be entered again.`,
+          "error",
+        );
+        return;
+      }
+      const applications = result.sync?.applicationsFetched ?? 0;
+      const projects = result.sync?.projectsFetched ?? 0;
+      if (applications === 0 && projects === 0) {
+        push("Argo CD is connected. No applications or projects were returned.", "info");
+      } else {
+        push("Argo CD is connected. Applications and projects were imported.", "success");
+      }
     } catch (err) {
-      push(err instanceof Error ? err.message : "Connect failed.", "error");
+      setFormMessage(err instanceof Error ? err.message : "Could not connect to Argo CD.");
     } finally {
       setSaving(false);
     }
@@ -124,6 +125,9 @@ export default function IntegrationsPage() {
                   {item.status === "coming_soon" ? "Coming soon" : item.status}
                 </Badge>
               </div>
+              {item.provider === "argocd" && item.status === "connected" && item.url ? (
+                <p className="mt-4 truncate text-xs text-zinc-500">{item.url}</p>
+              ) : null}
               {item.provider === "argocd" ? (
                 <div className="mt-5 flex flex-wrap gap-2">
                   {item.status === "connected" ? (
@@ -135,7 +139,7 @@ export default function IntegrationsPage() {
                           try {
                             await syncApplications();
                             await refresh();
-                            push("Applications refreshed from Argo CD.", "success");
+                            push("Applications and projects refreshed from Argo CD.", "success");
                           } catch (err) {
                             push(
                               err instanceof Error ? err.message : "Sync failed.",
@@ -150,9 +154,19 @@ export default function IntegrationsPage() {
                         variant="secondary"
                         size="sm"
                         onClick={async () => {
-                          await disconnectArgoCd();
-                          await refresh();
-                          push("Argo CD disconnected.", "info");
+                          try {
+                            await disconnectArgoCd();
+                            await refresh();
+                            push(
+                              "Argo CD disconnected. The stored token was removed. Revoke that token in Argo CD if it should stop working.",
+                              "info",
+                            );
+                          } catch (err) {
+                            push(
+                              err instanceof Error ? err.message : "Could not disconnect Argo CD.",
+                              "error",
+                            );
+                          }
                         }}
                       >
                         Disconnect
@@ -162,7 +176,9 @@ export default function IntegrationsPage() {
                     <Button
                       size="sm"
                       onClick={() => {
-                        setUrl(item.url ?? "");
+                        setUrl("");
+                        setToken("");
+                        setFormMessage("");
                         setOpen(true);
                       }}
                     >
@@ -183,42 +199,54 @@ export default function IntegrationsPage() {
       <Modal
         open={open}
         title="Connect Argo CD"
-        description="The token is sent to the API, encrypted at rest, and never stored in the browser."
+        description="Enter the server URL and an API token. Connect checks the certificate, token, and read access, then imports applications and projects."
         onClose={() => setOpen(false)}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button variant="secondary" loading={testing} onClick={() => void testConnection()}>
-              Test connection
-            </Button>
-            <Button loading={saving} onClick={() => void connect()}>
+            <Button loading={saving} disabled={!url.trim() || !token.trim()} onClick={() => void connect()}>
               Connect
             </Button>
           </>
         }
       >
         <div className="space-y-3">
+          <p className="text-xs leading-5 text-zinc-400">
+            The AWS server makes this connection. Use a public HTTPS address.
+            localhost, a Kubernetes service name, and a private address such as
+            192.168.49.2 cannot be reached. A private cluster needs a separate
+            outbound connection, which is not part of this setup.
+          </p>
           <div>
-            <label className="mb-1.5 block text-sm text-zinc-300">Argo CD URL</label>
+            <label className="mb-1.5 block text-sm text-zinc-300" htmlFor="argo-url">
+              Argo CD server URL
+            </label>
             <Input
+              id="argo-url"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
               placeholder="https://argocd.example.com"
+              autoComplete="off"
             />
           </div>
           <PasswordInput
             id="argo-token"
-            label="Token"
+            label="Argo CD API token"
             value={token}
             onChange={(event) => setToken(event.target.value)}
-            autoComplete="off"
+            autoComplete="new-password"
+            placeholder="Paste an API token"
           />
-          {testMessage ? (
-            <p className="flex items-start gap-2 text-xs text-zinc-400">
-              <CheckCircle2 size={14} className="mt-0.5 text-teal-300" />
-              {testMessage}
+          <p className="text-xs leading-5 text-zinc-500">
+            In Argo CD, create an account with get access to applications and
+            projects, then generate an API token. An administrator password is
+            not used. Later syncs reuse the stored token.
+          </p>
+          {formMessage ? (
+            <p className="rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 py-2 text-xs leading-5 text-rose-100">
+              {formMessage}
             </p>
           ) : null}
         </div>
