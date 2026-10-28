@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { X509Certificate } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import https from 'node:https';
 import { tmpdir } from 'node:os';
@@ -9,6 +10,7 @@ import tls from 'node:tls';
 import {
   assertHttpsUrl,
   buildArgoTrust,
+  diagnosticMessage,
   kubeRequestOptions,
   loadState,
   postJson,
@@ -35,6 +37,8 @@ test('stop signal ends the wait without disabling TLS', async () => {
 test('agent source keeps certificate validation enabled', () => {
   assert.equal(source.includes('rejectUnauthorized: false'), false);
   assert.equal(source.includes('NODE_TLS_REJECT_UNAUTHORIZED'), false);
+  assert.equal(source.includes('subject ==='), false);
+  assert.equal(source.includes('.issuer'), false);
   assert.equal(source.includes("process.once('SIGTERM'"), true);
   assert.match(dockerfile, /^FROM node:22\.23\.4-alpine3\.24/m);
   assert.equal(tlsOptions().rejectUnauthorized, true);
@@ -132,7 +136,9 @@ test('an Argo CD read failure does not invent applications', async () => {
   assert.equal(result.status, 'error');
   assert.equal(calls.some((call) => call.url.endsWith('/snapshot')), false);
   const report = calls.find((call) => call.url.endsWith('/report'));
-  assert.equal(report.body.error, 'Argo CD returned 401.');
+  assert.equal(report.body.error, 'category=argocd-http status=401');
+  assert.equal(result.detail, 'category=argocd-http status=401');
+  assert.equal(report.body.error.includes('enroll-token-value-0123456789'), false);
   assert.equal(JSON.stringify(calls).includes('guestbook'), false);
 });
 
@@ -245,6 +251,25 @@ test.before(() => {
   makeLeaf('expired.internal', [
     '-not_before', '20200101000000Z',
     '-not_after', '20200102000000Z',
+    '-copy_extensions', 'copy',
+  ]);
+  openssl([
+    'req', '-x509', '-newkey', 'rsa:2048', '-keyout', 'self.local.key', '-out', 'self.local.crt',
+    '-days', '30', '-nodes', '-subj', '/CN=self.local',
+    '-addext', 'subjectAltName=DNS:self.local',
+    '-addext', 'basicConstraints=critical,CA:FALSE',
+    '-addext', 'keyUsage=critical,digitalSignature,keyEncipherment',
+  ]);
+  openssl([
+    'req', '-new', '-newkey', 'rsa:2048', '-keyout', 'expired-self.key', '-out', 'expired-self.csr',
+    '-nodes', '-subj', '/CN=expired-self.local',
+    '-addext', 'subjectAltName=DNS:expired-self.local',
+    '-addext', 'basicConstraints=critical,CA:FALSE',
+  ]);
+  openssl([
+    'x509', '-req', '-in', 'expired-self.csr', '-signkey', 'expired-self.key',
+    '-out', 'expired-self.crt',
+    '-not_before', '20200101000000Z', '-not_after', '20200102000000Z',
     '-copy_extensions', 'copy',
   ]);
 });
@@ -362,7 +387,70 @@ test('a missing or invalid CA file is rejected', () => {
   assert.throws(() => validateCaPem(readFileSync(join(certDir, 'ca.key'), 'utf8')), /private key/);
   assert.throws(
     () => validateCaPem(readFileSync(join(certDir, 'argocd.internal.crt'), 'utf8')),
-    /certificate authority/,
+    /trust anchor/,
+  );
+});
+
+test('a valid self-signed Argo CD certificate is a trust anchor', async () => {
+  const pem = readFileSync(join(certDir, 'self.local.crt'), 'utf8');
+  const parsed = new X509Certificate(pem);
+  assert.equal(parsed.ca, false);
+  assert.equal(parsed.verify(parsed.publicKey), true);
+  assert.equal(validateCaPem(pem).includes('BEGIN CERTIFICATE'), true);
+  const without = await handshake('self.local', 'self.local');
+  assert.equal(without.ok, false);
+  const withCert = await handshake('self.local', 'self.local', pem);
+  assert.equal(withCert.ok, true, withCert.message);
+  const other = await handshake('argocd.internal', 'argocd.internal', pem);
+  assert.equal(other.ok, false);
+  const mismatch = await handshake('self.local', 'other.internal', pem);
+  assert.equal(mismatch.ok, false);
+  assert.match(`${mismatch.code} ${mismatch.message}`, /ALTNAME|hostname/i);
+  const trust = buildArgoTrust(pem);
+  assert.equal(trust.rejectUnauthorized, true);
+  assert.ok(trust.ca.includes(tls.rootCertificates[0]));
+  const saas = await publicHandshake(trust.ca);
+  assert.equal(saas.ok, true, saas.message);
+});
+
+test('an invalid self-signed certificate is rejected', () => {
+  const pem = readFileSync(join(certDir, 'self.local.crt'), 'utf8');
+  const body = pem.replace(/-----BEGIN CERTIFICATE-----/, '').replace(/-----END CERTIFICATE-----/, '').replace(/\s/g, '');
+  const der = Buffer.from(body, 'base64');
+  der[der.length - 8] ^= 0xff;
+  const forged = `-----BEGIN CERTIFICATE-----\n${der.toString('base64').match(/.{1,64}/g).join('\n')}\n-----END CERTIFICATE-----\n`;
+  const parsed = new X509Certificate(forged);
+  assert.equal(parsed.subject, parsed.issuer);
+  assert.equal(parsed.verify(parsed.publicKey), false);
+  assert.throws(() => validateCaPem(forged), /trust anchor/);
+  assert.throws(
+    () => validateCaPem(readFileSync(join(certDir, 'expired-self.crt'), 'utf8')),
+    /expired/,
+  );
+});
+
+test('diagnostic logs use categories and omit secrets', () => {
+  assert.equal(diagnosticMessage(new Error('GitOps Insights returned 401.')), 'category=api-http status=401');
+  assert.equal(diagnosticMessage(new Error('Argo CD returned 403.')), 'category=argocd-http status=403');
+  const tlsError = new Error('certificate has expired at https://user:secret@argocd.local');
+  tlsError.code = 'CERT_HAS_EXPIRED';
+  const tlsText = diagnosticMessage(tlsError);
+  assert.equal(tlsText, 'category=tls code=CERT_HAS_EXPIRED');
+  assert.equal(tlsText.includes('secret'), false);
+  assert.equal(tlsText.includes('https://'), false);
+  const network = new Error('Bearer eyJabc.def.ghi getaddrinfo ENOTFOUND');
+  network.code = 'ENOTFOUND';
+  const networkText = diagnosticMessage(network);
+  assert.equal(networkText, 'category=network code=ENOTFOUND');
+  assert.equal(networkText.includes('Bearer'), false);
+  assert.equal(networkText.includes('eyJ'), false);
+  const leaked = new Error('authorization header and ARGOCD_TOKEN=local-secret');
+  const leakedText = diagnosticMessage(leaked);
+  assert.equal(leakedText, 'category=unknown');
+  assert.equal(leakedText.includes('local-secret'), false);
+  assert.equal(
+    diagnosticMessage(new Error('The CA certificate is expired.')),
+    'category=certificate detail=The CA certificate is expired.',
   );
 });
 

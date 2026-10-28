@@ -34,6 +34,50 @@ export function tlsOptions(ca) {
 }
 
 const PRIVATE_KEY_PEM = /-----BEGIN (?:RSA |EC |ENCRYPTED |OPENSSH )?PRIVATE KEY-----/;
+const SAFE_CODE = /^[A-Z][A-Z0-9_]{0,63}$/;
+const NETWORK_CODES = new Set([
+  'ENOTFOUND',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'EAI_AGAIN',
+  'ECONNABORTED',
+  'EPIPE',
+]);
+const TLS_CODES = new Set([
+  'CERT_HAS_EXPIRED',
+  'CERT_NOT_YET_VALID',
+  'CERT_SIGNATURE_FAILURE',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'ERR_TLS_HANDSHAKE_TIMEOUT',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+]);
+const SAFE_CERTIFICATE_MESSAGES = new Set([
+  'The CA certificate is empty.',
+  'A private key was provided. Use the CA certificate only.',
+  'The CA certificate must be PEM data.',
+  'The CA certificate is not a valid X.509 certificate.',
+  'This certificate is not an Argo CD trust anchor.',
+  'The CA certificate is not yet valid.',
+  'The CA certificate is expired.',
+  'ARGOCD_CA_FILE is set, but the certificate file could not be read.',
+  'ARGOCD_CA_FILE is empty.',
+]);
+
+function trustAnchor(certificate) {
+  if (certificate.ca) return true;
+  try {
+    return certificate.verify(certificate.publicKey) === true;
+  } catch {
+    return false;
+  }
+}
 
 export function validateCaPem(pem) {
   const text = String(pem ?? '').replaceAll('\\n', '\n').trim();
@@ -51,7 +95,9 @@ export function validateCaPem(pem) {
     } catch {
       throw new Error('The CA certificate is not a valid X.509 certificate.');
     }
-    if (!certificate.ca) throw new Error('This certificate is not a certificate authority.');
+    if (!trustAnchor(certificate)) {
+      throw new Error('This certificate is not an Argo CD trust anchor.');
+    }
     const validFrom = Date.parse(certificate.validFrom);
     const validTo = Date.parse(certificate.validTo);
     if (Number.isNaN(validFrom) || validFrom > now) {
@@ -60,6 +106,28 @@ export function validateCaPem(pem) {
     if (Number.isNaN(validTo) || validTo <= now) throw new Error('The CA certificate is expired.');
   }
   return blocks.map((block) => block.trim()).join('\n');
+}
+
+export function diagnosticMessage(error) {
+  const raw = error instanceof Error ? error.message : '';
+  const code = typeof error?.code === 'string' && SAFE_CODE.test(error.code) ? error.code : '';
+  const apiStatus = /^GitOps Insights returned (\d{3})\.$/.exec(raw);
+  if (apiStatus) return `category=api-http status=${apiStatus[1]}`;
+  const argoStatus = /^Argo CD returned (\d{3})\.$/.exec(raw);
+  if (argoStatus) return `category=argocd-http status=${argoStatus[1]}`;
+  if (TLS_CODES.has(code)) return `category=tls code=${code}`;
+  if (raw === 'Argo CD timed out.') return 'category=argocd-timeout';
+  if (raw === 'Kubernetes API timed out.') return 'category=kubernetes-timeout';
+  if (raw.endsWith('could not be reached.') || NETWORK_CODES.has(code)) {
+    const scope = raw.startsWith('Argo CD')
+      ? 'argocd-network'
+      : raw.startsWith('Kubernetes API')
+        ? 'kubernetes-network'
+        : 'network';
+    return code ? `category=${scope} code=${code}` : `category=${scope}`;
+  }
+  if (SAFE_CERTIFICATE_MESSAGES.has(raw)) return `category=certificate detail=${raw}`;
+  return code ? `category=unknown code=${code}` : 'category=unknown';
 }
 
 export function buildArgoTrust(pem) {
@@ -173,15 +241,15 @@ export async function runOnce(options) {
     );
     return { credential, status: 'connected', enrolled };
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Argo CD could not be read.';
+    const detail = diagnosticMessage(error);
     await postJson(
       options.fetchImpl,
       insights,
       '/connectors/agent/report',
-      { error: message.slice(0, 160) },
+      { error: detail },
       credential,
     );
-    return { credential, status: 'error', enrolled };
+    return { credential, status: 'error', enrolled, detail };
   }
 }
 
@@ -259,10 +327,16 @@ function httpsRequest(options, body, failureLabel = 'The remote host') {
         });
       });
     });
-    req.on('error', () => reject(new Error(`${failureLabel} could not be reached.`)));
+    req.on('error', (error) => {
+      const failure = new Error(`${failureLabel} could not be reached.`);
+      if (typeof error?.code === 'string' && SAFE_CODE.test(error.code)) failure.code = error.code;
+      reject(failure);
+    });
     req.setTimeout(REQUEST_TIMEOUT_MS, () => {
       req.destroy();
-      reject(new Error(`${failureLabel} timed out.`));
+      const failure = new Error(`${failureLabel} timed out.`);
+      failure.code = 'ETIMEDOUT';
+      reject(failure);
     });
     if (body) req.write(body);
     req.end();
@@ -411,7 +485,13 @@ async function main() {
   const stateFile = process.env.CONNECTOR_STATE_FILE || '';
   const token = process.env.ARGOCD_TOKEN || '';
   const kube = process.env.KUBERNETES_SERVICE_HOST ? readClusterConfig(insightsUrl) : null;
-  const caPem = readArgoCaFile(process.env.ARGOCD_CA_FILE || '');
+  let caPem;
+  try {
+    caPem = readArgoCaFile(process.env.ARGOCD_CA_FILE || '');
+  } catch (error) {
+    console.error(`[connector] ${diagnosticMessage(error)}`);
+    process.exit(1);
+  }
   const stop = new AbortController();
   const finish = () => stop.abort();
   process.once('SIGTERM', finish);
@@ -438,10 +518,9 @@ async function main() {
       memory = result.credential;
       if (kube) await storeCredential(kube, kubernetesRequest, memory);
       else if (stateFile) persist(stateFile, memory);
-      console.log(`[connector] ${result.status}`);
+      console.log(`[connector] ${result.status}${result.detail ? ` ${result.detail}` : ''}`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Connector failed.';
-      console.error(`[connector] ${message}`);
+      console.error(`[connector] ${diagnosticMessage(error)}`);
     }
     await waitForStop(stop.signal, 20_000);
     if (stop.signal.aborted) break;
