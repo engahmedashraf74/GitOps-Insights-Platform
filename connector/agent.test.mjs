@@ -19,14 +19,23 @@ import {
   storeCredential,
   tlsOptions,
   validateCaPem,
+  waitForStop,
 } from './agent.mjs';
 
 const source = readFileSync(new URL('./agent.mjs', import.meta.url), 'utf8');
 const dockerfile = readFileSync(new URL('./Dockerfile', import.meta.url), 'utf8');
 
+test('stop signal ends the wait without disabling TLS', async () => {
+  const stop = new AbortController();
+  const pending = waitForStop(stop.signal, 60_000);
+  stop.abort();
+  await pending;
+});
+
 test('agent source keeps certificate validation enabled', () => {
   assert.equal(source.includes('rejectUnauthorized: false'), false);
   assert.equal(source.includes('NODE_TLS_REJECT_UNAUTHORIZED'), false);
+  assert.equal(source.includes("process.once('SIGTERM'"), true);
   assert.match(dockerfile, /^FROM node:22\.23\.4-alpine3\.24/m);
   assert.equal(tlsOptions().rejectUnauthorized, true);
   const options = requestOptions(

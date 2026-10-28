@@ -10,6 +10,7 @@ import {
   assertConnectorImage,
   assertSnapshotShape,
   publicApiUrl,
+  renderInstallCommand,
   renderManifest,
 } from '../connectors/connector-protocol';
 
@@ -154,6 +155,38 @@ describe('connector URL rules', () => {
         /private key/,
       );
       expect(withCa).not.toContain(pem.trim().split('\n')[1]);
+      const command = renderInstallCommand({
+        apiUrl: 'https://api.gitops-insights.com',
+        argoUrl: 'https://argocd.example.com',
+        name: 'Production',
+        image: 'registry.example.com/gitops-insights-connector:0.1.0',
+        customCa: true,
+        enrollmentToken: 'abcdefghijklmnopqrstuvwxyz012345',
+        expiresAt: '2026-10-28T12:00:00.000Z',
+      });
+      expect(command.startsWith("bash <<'GITOPS_INSTALL'\n")).toBe(true);
+      expect(command).toContain("read -rs ARGOCD_TOKEN");
+      expect(command).toContain('registry.example.com/gitops-insights-connector:0.1.0');
+      expect(command).toContain('ARGOCD_CA_FILE');
+      expect(command).not.toContain('-----BEGIN CERTIFICATE-----');
+      expect(command).not.toContain('-----BEGIN PRIVATE KEY-----');
+      expect(command).not.toContain('--from-literal');
+      expect(command.toLowerCase()).not.toContain('minikube');
+      const inner = command.split("bash <<'GITOPS_INSTALL'\n")[1].replace(/\nGITOPS_INSTALL\n$/, '\n');
+      expect(inner).not.toContain('GITOPS_INSTALL');
+      const bashBins = ['bash', 'C:\\Program Files\\Git\\bin\\bash.exe'];
+      let syntaxChecked = false;
+      for (const bin of bashBins) {
+        try {
+          execFileSync(bin, ['-n'], { input: inner, stdio: 'pipe' });
+          syntaxChecked = true;
+          break;
+        } catch (error) {
+          const missing = error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT';
+          if (!missing) throw error;
+        }
+      }
+      expect(syntaxChecked).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

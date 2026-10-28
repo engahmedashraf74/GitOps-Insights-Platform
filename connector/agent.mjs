@@ -102,6 +102,19 @@ export function stateDocument(credential) {
   return JSON.stringify({ credential });
 }
 
+export function waitForStop(signal, ms) {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', done);
+      resolve();
+    }
+    if (signal) signal.addEventListener('abort', done, { once: true });
+  });
+}
+
 export async function postJson(fetchImpl, base, path, body, credential) {
   const url = new URL(path, base);
   assertHttpsUrl(url.toString(), 'GitOps Insights URL');
@@ -399,8 +412,13 @@ async function main() {
   const token = process.env.ARGOCD_TOKEN || '';
   const kube = process.env.KUBERNETES_SERVICE_HOST ? readClusterConfig(insightsUrl) : null;
   const caPem = readArgoCaFile(process.env.ARGOCD_CA_FILE || '');
+  const stop = new AbortController();
+  const finish = () => stop.abort();
+  process.once('SIGTERM', finish);
+  process.once('SIGINT', finish);
   let memory = '';
   for (;;) {
+    if (stop.signal.aborted) break;
     try {
       if (!memory && kube) {
         const stored = await readStoredCredential(kube, kubernetesRequest);
@@ -425,7 +443,8 @@ async function main() {
       const message = error instanceof Error ? error.message : 'Connector failed.';
       console.error(`[connector] ${message}`);
     }
-    await new Promise((resolve) => setTimeout(resolve, 20_000));
+    await waitForStop(stop.signal, 20_000);
+    if (stop.signal.aborted) break;
   }
 }
 

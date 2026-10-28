@@ -248,6 +248,12 @@ describe('ConnectorsService', () => {
     expect(logs.join('\n')).not.toContain(created.enrollmentToken);
     expect(logs.join('\n')).not.toContain(enrolled.credential);
     expect(created.enrollmentCommand).toContain(created.enrollmentToken);
+    expect(created.installCommand).toContain(`ENROLLMENT_TOKEN='${created.enrollmentToken}'`);
+    expect(created.installCommand).not.toContain('YOUR_ARGO_CD_TOKEN');
+    expect(created.installCommand).not.toContain('--from-literal');
+    expect(created.installCommand).not.toContain('set -x');
+    expect(created.installCommand).not.toContain('NODE_TLS_REJECT_UNAUTHORIZED');
+    expect(created.installCommand.split(created.enrollmentToken)).toHaveLength(2);
     expect(created.manifest).not.toContain(created.enrollmentToken);
     expect(created.manifest).toContain('gitops-insights-connector:0.1.0');
     expect(created.manifest).toContain('gitops-insights-connector-state');

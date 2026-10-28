@@ -28,6 +28,7 @@ export type ConnectorEnrollment = {
   expiresAt: string;
   enrollmentToken: string;
   enrollmentCommand: string;
+  installCommand: string;
   manifest: string;
   localSecretCommand: string;
   caSecretCommand: string | null;

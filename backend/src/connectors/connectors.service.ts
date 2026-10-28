@@ -22,6 +22,7 @@ import {
   hashCredential,
   publicApiUrl,
   redactText,
+  renderInstallCommand,
   renderManifest,
 } from './connector-protocol';
 
@@ -331,6 +332,15 @@ export class ConnectorsService {
         name,
         image: connectorImage(),
         customCa,
+      }),
+      installCommand: renderInstallCommand({
+        apiUrl,
+        argoUrl,
+        name,
+        image: connectorImage(),
+        customCa,
+        enrollmentToken,
+        expiresAt: expiresAt.toISOString(),
       }),
       caSecretCommand: customCa
         ? 'kubectl -n gitops-insights create secret generic argocd-ca --from-file=ca.crt=./ca.crt'
