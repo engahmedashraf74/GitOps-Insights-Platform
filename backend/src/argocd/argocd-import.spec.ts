@@ -165,7 +165,12 @@ describe('connector URL rules', () => {
         expiresAt: '2026-10-28T12:00:00.000Z',
       });
       expect(command.startsWith("bash <<'GITOPS_INSTALL'\n")).toBe(true);
-      expect(command).toContain("read -rs ARGOCD_TOKEN");
+      expect(command).toContain('read -r answer </dev/tty');
+      expect(command).toContain('read -rs ARGOCD_TOKEN </dev/tty');
+      expect(command).toContain('printf "\\n" >/dev/tty');
+      expect(command).toContain('GITOPS_ASSUME_YES');
+      expect(command).not.toContain('[[ ! -t 0 ]]');
+      expect(command).not.toContain('read -rs ARGOCD_TOKEN\n');
       expect(command).toContain('registry.example.com/gitops-insights-connector:0.1.0');
       expect(command).toContain('ARGOCD_CA_FILE');
       expect(command).not.toContain('-----BEGIN CERTIFICATE-----');
