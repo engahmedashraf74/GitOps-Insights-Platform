@@ -12,6 +12,12 @@ import { randomBytes } from 'crypto';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailerService } from '../mail/mailer.service';
+import { frontendOrigin, verificationPageUrl } from './verification-link';
+
+const VERIFICATION_RESEND_INTERVAL_MS = 60_000;
+const VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type VerificationDelivery = 'accepted' | 'unavailable';
 
 @Injectable()
 export class AuthService {
@@ -40,12 +46,13 @@ export class AuthService {
 
     const user = await this.usersService.create(email, password, username);
     await this.organizations.ensureForUser(user.id);
-    await this.issueVerification(user.id, user.email);
+    const emailDelivery = await this.issueVerification(user.id, user.email);
 
     return {
       ok: true,
       requiresVerification: true,
       email: user.email,
+      emailDelivery,
     };
   }
 
@@ -97,27 +104,108 @@ export class AuthService {
 
   async resendVerification(email: string) {
     const user = await this.usersService.findByEmail(email);
-    if (!user || user.emailVerified) {
-      return { ok: true };
+    if (!this.mailer.configured() || !this.originReady()) {
+      this.logger.warn(
+        'Verification email was not sent (category=verification-unavailable)',
+      );
+      return { ok: true, delivery: 'unavailable' as const };
     }
+    if (!user || user.emailVerified) {
+      return { ok: true, delivery: 'accepted' as const };
+    }
+    // A failed send stays indistinguishable from an unknown address.
     await this.issueVerification(user.id, user.email);
-    return { ok: true };
+    return { ok: true, delivery: 'accepted' as const };
   }
 
-  private async issueVerification(userId: number, email: string) {
-    const token = randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await this.prisma.emailVerificationToken.create({
-      data: { token, expiresAt, userId },
+  private originReady(): boolean {
+    try {
+      frontendOrigin();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private async issueVerification(
+    userId: number,
+    email: string,
+  ): Promise<VerificationDelivery> {
+    if (!this.mailer.configured() || !this.originReady()) {
+      this.logger.warn(
+        `Verification email was not sent (category=verification-unavailable user=${userId})`,
+      );
+      return 'unavailable';
+    }
+
+    const recent = await this.prisma.emailVerificationToken.findFirst({
+      where: {
+        userId,
+        usedAt: null,
+        createdAt: { gte: new Date(Date.now() - VERIFICATION_RESEND_INTERVAL_MS) },
+      },
+      select: { id: true },
     });
-    const appUrl = (process.env.APP_URL || 'http://localhost:3001').replace(
-      /\/$/,
-      '',
+    if (recent) {
+      this.logger.warn(
+        `Verification email was not sent (category=resend-rate-limited user=${userId})`,
+      );
+      return 'accepted';
+    }
+
+    await this.prisma.emailVerificationToken.updateMany({
+      where: { userId, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const token = randomBytes(32).toString('hex');
+    const created = await this.prisma.emailVerificationToken.create({
+      data: {
+        token,
+        expiresAt: new Date(Date.now() + VERIFICATION_TTL_MS),
+        userId,
+      },
+    });
+
+    let verifyUrl: string;
+    try {
+      verifyUrl = verificationPageUrl(token);
+    } catch {
+      await this.consumeToken(created.id);
+      this.logger.error(
+        `Verification link could not be built (category=verification-url user=${userId})`,
+      );
+      return 'unavailable';
+    }
+
+    const result = await this.mailer.send(
+      this.mailer.renderVerifyEmail(email, verifyUrl),
     );
-    const verifyUrl = `${appUrl}/verify-email?token=${token}`;
-    const message = this.mailer.renderVerifyEmail(email, verifyUrl);
-    await this.mailer.send(message);
-    this.logger.log(`Verification email issued for user ${userId}`);
+    if (result.status !== 'accepted') {
+      await this.consumeToken(created.id);
+      this.logger.error(
+        `Verification email was not sent (category=${result.category} user=${userId})`,
+      );
+      return 'unavailable';
+    }
+
+    this.logger.log(
+      `Verification email accepted by SMTP (category=smtp-accepted user=${userId})`,
+    );
+    return 'accepted';
+  }
+
+  private async consumeToken(id: number) {
+    try {
+      await this.prisma.emailVerificationToken.update({
+        where: { id },
+        data: { usedAt: new Date() },
+      });
+    } catch {
+      this.logger.error(
+        'Verification token could not be expired (category=verification-token)',
+      );
+    }
   }
 
   me(userId: number) {

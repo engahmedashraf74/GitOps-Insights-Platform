@@ -15,7 +15,14 @@ export async function register(
   email: string,
   password: string,
   username?: string,
-): Promise<AuthResponse & { requiresVerification?: boolean; email?: string; ok?: boolean }> {
+): Promise<
+  AuthResponse & {
+    requiresVerification?: boolean;
+    email?: string;
+    ok?: boolean;
+    emailDelivery?: "accepted" | "unavailable";
+  }
+> {
   return apiFetch("/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, password, username }),
@@ -29,7 +36,9 @@ export async function verifyEmail(token: string): Promise<AuthResponse> {
   });
 }
 
-export async function resendVerification(email: string): Promise<{ ok: boolean }> {
+export async function resendVerification(
+  email: string,
+): Promise<{ ok: boolean; delivery?: "accepted" | "unavailable" }> {
   return apiFetch("/auth/resend-verification", {
     method: "POST",
     body: JSON.stringify({ email }),

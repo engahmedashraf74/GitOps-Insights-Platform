@@ -5,7 +5,7 @@ const WORKSPACE_KEY = "goi.workspace";
 
 const defaultPreferences: UserPreferences = {
   username: "",
-  theme: "dark",
+  theme: "light",
   timezone: "UTC",
   defaultProjectId: null,
   notifications: {
@@ -27,7 +27,7 @@ export function getPreferences(): UserPreferences {
   try {
     const raw = localStorage.getItem(PREFERENCES_KEY);
     if (!raw) return defaultPreferences;
-    return { ...defaultPreferences, ...JSON.parse(raw) };
+    return { ...defaultPreferences, ...JSON.parse(raw), theme: "light" };
   } catch {
     return defaultPreferences;
   }

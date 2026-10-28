@@ -1,12 +1,11 @@
 "use client";
 
-import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { SearchInput } from "@/components/ui/search-input";
 import { clearToken, getSessionUser } from "@/lib/auth";
 import { getPreferences, getWorkspace } from "@/lib/settings";
 import { Bell, ChevronsLeft, ChevronsRight, Menu, UserRound } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 export function Topbar({
   collapsed,
@@ -24,18 +23,22 @@ export function Topbar({
   unreadCount: number;
 }) {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [username, setUsername] = useState("");
-  const [workspace, setWorkspace] = useState("Workspace");
+  const email = useSyncExternalStore(
+    subscribeBrowserStore,
+    () => getSessionUser()?.email ?? "",
+    () => "",
+  );
+  const username = useSyncExternalStore(
+    subscribeBrowserStore,
+    () => getPreferences().username,
+    () => "",
+  );
+  const workspace = useSyncExternalStore(
+    subscribeBrowserStore,
+    () => getWorkspace().name,
+    () => "Workspace",
+  );
   const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    const session = getSessionUser();
-    const prefs = getPreferences();
-    setEmail(session?.email ?? "");
-    setUsername(prefs.username);
-    setWorkspace(getWorkspace().name);
-  }, []);
 
   function logout() {
     clearToken();
@@ -83,7 +86,6 @@ export function Topbar({
         Ctrl K
       </kbd>
       <div className="ml-auto flex items-center gap-2">
-        <ThemeToggle />
         <button
           className="relative rounded-lg p-2 text-zinc-400 hover:bg-white/6"
           aria-label="Notifications"
@@ -135,4 +137,8 @@ export function Topbar({
       </div>
     </header>
   );
+}
+
+function subscribeBrowserStore() {
+  return () => {};
 }

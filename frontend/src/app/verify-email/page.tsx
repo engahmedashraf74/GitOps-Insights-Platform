@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { setToken } from "@/lib/auth";
 import { resendVerification, verifyEmail } from "@/services/auth";
+import { resendVerificationNotice } from "@/lib/verification-copy";
 import { ApiError } from "@/services/api";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -15,7 +16,9 @@ function VerifyEmailForm() {
   const [status, setStatus] = useState<"idle" | "working" | "ok" | "error">(
     token ? "working" : "idle",
   );
-  const [message, setMessage] = useState("");
+  const [notice, setNotice] = useState(() =>
+    token ? null : resendVerificationNotice(params.get("delivery")),
+  );
   const [email, setEmail] = useState(params.get("email") ?? "");
 
   useEffect(() => {
@@ -25,7 +28,10 @@ function VerifyEmailForm() {
         const data = await verifyEmail(token);
         if (!data.access_token) {
           setStatus("error");
-          setMessage("Verification succeeded but no session token was returned.");
+          setNotice({
+            tone: "warning",
+            text: "Verification succeeded but no session token was returned.",
+          });
           return;
         }
         setToken(data.access_token);
@@ -33,19 +39,25 @@ function VerifyEmailForm() {
         setTimeout(() => router.replace("/onboarding"), 800);
       } catch (err) {
         setStatus("error");
-        setMessage(err instanceof ApiError ? err.message : "Verification failed.");
+        setNotice({
+          tone: "warning",
+          text: err instanceof ApiError ? err.message : "Verification failed.",
+        });
       }
     })();
   }, [router, token]);
 
   async function onResend(event: FormEvent) {
     event.preventDefault();
-    setMessage("");
+    setNotice(null);
     try {
-      await resendVerification(email.trim());
-      setMessage("If that account exists and is unverified, a new email was sent.");
+      const result = await resendVerification(email.trim());
+      setNotice(resendVerificationNotice(result.delivery));
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : "Could not resend email.");
+      setNotice({
+        tone: "warning",
+        text: err instanceof Error ? err.message : "Could not resend email.",
+      });
     }
   }
 
@@ -64,8 +76,10 @@ function VerifyEmailForm() {
         ) : null}
         {status === "error" || status === "idle" ? (
           <>
-            <p className="mt-3 text-sm text-zinc-400">
-              {message ||
+            <p
+              className={`mt-3 text-sm ${notice?.tone === "warning" ? "text-rose-700" : "text-zinc-600"}`}
+            >
+              {notice?.text ||
                 "Enter the email you registered with to resend the verification link."}
             </p>
             <form onSubmit={(event) => void onResend(event)} className="mt-4 space-y-3">

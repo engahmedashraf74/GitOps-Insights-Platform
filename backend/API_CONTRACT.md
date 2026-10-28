@@ -140,7 +140,7 @@ Overview no longer hardcodes `gitops-insights`. Timeline includes `environment` 
 - `STRIPE_SECRET_KEY` — Stripe secret key for Checkout and webhooks.
 - `STRIPE_WEBHOOK_SECRET` — Stripe webhook signing secret (`whsec_...`).
 - `STRIPE_PRICE_ID_PRO` — Price id for the Pro subscription.
-- `FRONTEND_URL` — Public frontend origin used in Checkout success/cancel URLs (falls back to `APP_URL`).
-- `APP_URL` is used in verification links (default `http://localhost:3001`).
-- `SMTP_HOST` optional. If unset, verification links are logged.
+- `FRONTEND_URL` — Public frontend origin used in verification links and Checkout success/cancel URLs. `APP_URL` is the fallback for verification links only.
+- Production verification links require `https` and reject localhost or cluster addresses. A missing origin does not fall back to localhost in production, and the verification URL is never written to logs.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `MAIL_FROM` must be set to send mail. If SMTP settings are missing, the send is skipped and the API reports that delivery is unavailable. SMTP acceptance is not inbox delivery.
 - `ARGOCD_URL` / `ARGOCD_TOKEN` are a **development fallback only**. Production uses stored per-organization integrations unless `ARGOCD_ENV_FALLBACK=true`.

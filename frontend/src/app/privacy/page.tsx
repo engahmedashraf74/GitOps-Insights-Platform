@@ -60,7 +60,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="Technical information">
         <p>
-          The browser stores a session token, theme and interface preferences, onboarding state,
+          The browser stores a session token, interface preferences, onboarding state,
           and which notifications you have marked read, using local storage on your device. The
           Service does not set its own analytics cookies and does not run a third-party analytics
           script. A hosting provider or a payment provider may process technical data, including

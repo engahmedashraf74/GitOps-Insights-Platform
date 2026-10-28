@@ -8,12 +8,11 @@ import { useToast } from "@/components/ui/toast";
 import { useAuthGuard } from "@/hooks/use-auth-guard";
 import { useWorkspace } from "@/hooks/use-workspace";
 import { getSessionUser } from "@/lib/auth";
-import { applyTheme } from "@/lib/theme";
 import { getWorkspace, saveWorkspace } from "@/lib/settings";
 import { loadSettings, updateSettings } from "@/services/settings";
 import type { UserPreferences } from "@/types";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 const tabs = ["Profile", "Security", "Notifications", "Integrations", "Preferences"] as const;
 type Tab = (typeof tabs)[number];
@@ -23,17 +22,36 @@ export default function SettingsPage() {
   const { push } = useToast();
   const { snapshot } = useWorkspace(ready);
   const [tab, setTab] = useState<Tab>("Profile");
-  const [prefs, setPrefs] = useState<UserPreferences>(loadSettings);
-  const [workspace, setWorkspace] = useState(getWorkspace().name);
-  const [email, setEmail] = useState("");
+  const storedPrefs = useSyncExternalStore(
+    subscribeBrowserStore,
+    readStoredPreferences,
+    serverPreferences,
+  );
+  const storedWorkspace = useSyncExternalStore(
+    subscribeBrowserStore,
+    () => getWorkspace().name,
+    () => "Platform workspace",
+  );
+  const email = useSyncExternalStore(
+    subscribeBrowserStore,
+    () => getSessionUser()?.email ?? "",
+    () => "",
+  );
+  const [prefs, setPrefs] = useState(storedPrefs);
+  const [appliedPrefs, setAppliedPrefs] = useState(false);
+  const [workspace, setWorkspace] = useState(storedWorkspace);
+  const [appliedWorkspace, setAppliedWorkspace] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
 
-  useEffect(() => {
-    setEmail(getSessionUser()?.email ?? "");
-    setPrefs(loadSettings());
-    setWorkspace(getWorkspace().name);
-  }, []);
+  if (!appliedPrefs && storedPrefs !== serverPrefs) {
+    setAppliedPrefs(true);
+    setPrefs(storedPrefs);
+  }
+  if (!appliedWorkspace && storedWorkspace !== "Platform workspace") {
+    setAppliedWorkspace(true);
+    setWorkspace(storedWorkspace);
+  }
 
   if (!ready) return null;
 
@@ -165,23 +183,6 @@ export default function SettingsPage() {
       {tab === "Preferences" ? (
         <section className="space-y-4 rounded-xl border border-white/8 p-5">
           <label className="block text-sm">
-            Theme
-            <select
-              className="mt-2 h-11 w-full rounded-lg border border-white/10 bg-zinc-950/60 px-3"
-              value={prefs.theme}
-              onChange={(event) => {
-                const theme = event.target.value as UserPreferences["theme"];
-                const next = { ...prefs, theme };
-                setPrefs(next);
-                applyTheme(theme);
-              }}
-            >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="system">System</option>
-            </select>
-          </label>
-          <label className="block text-sm">
             Timezone
             <Input
               className="mt-2"
@@ -225,4 +226,36 @@ export default function SettingsPage() {
       ) : null}
     </div>
   );
+}
+
+const serverPrefs: UserPreferences = {
+  username: "",
+  theme: "light",
+  timezone: "UTC",
+  defaultProjectId: null,
+  notifications: {
+    email: true,
+    deploymentFailures: true,
+    weeklySummary: false,
+  },
+};
+
+let cachedPrefsSerial = "";
+let cachedPrefs = serverPrefs;
+
+function subscribeBrowserStore() {
+  return () => {};
+}
+
+function serverPreferences() {
+  return serverPrefs;
+}
+
+function readStoredPreferences(): UserPreferences {
+  const next = loadSettings();
+  const serial = JSON.stringify(next);
+  if (serial === cachedPrefsSerial) return cachedPrefs;
+  cachedPrefsSerial = serial;
+  cachedPrefs = next;
+  return cachedPrefs;
 }

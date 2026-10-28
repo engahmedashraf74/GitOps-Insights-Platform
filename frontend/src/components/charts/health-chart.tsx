@@ -35,11 +35,12 @@ export function HealthChart({ data }: { data: HealthBreakdown }) {
             width={28}
           />
           <Tooltip
-            cursor={{ fill: "rgba(255,255,255,0.04)" }}
+            cursor={{ fill: "rgba(15,23,42,0.04)" }}
             contentStyle={{
-              background: "#111113",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "#ffffff",
+              border: "1px solid rgba(15,23,42,0.1)",
               borderRadius: 8,
+              color: "#0f172a",
             }}
           />
           <Bar dataKey="value" radius={[8, 8, 0, 0]} />

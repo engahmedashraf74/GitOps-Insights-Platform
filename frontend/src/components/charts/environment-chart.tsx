@@ -16,7 +16,7 @@ export function EnvironmentChart({ data }: { data: EnvironmentComparison[] }) {
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} layout="vertical" margin={{ left: 24 }}>
-          <CartesianGrid stroke="rgba(255,255,255,0.06)" horizontal={false} />
+          <CartesianGrid stroke="rgba(15,23,42,0.08)" horizontal={false} />
           <XAxis
             type="number"
             allowDecimals={false}
@@ -34,12 +34,13 @@ export function EnvironmentChart({ data }: { data: EnvironmentComparison[] }) {
           />
           <Tooltip
             contentStyle={{
-              background: "#111113",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "#ffffff",
+              border: "1px solid rgba(15,23,42,0.1)",
               borderRadius: 8,
+              color: "#0f172a",
             }}
           />
-          <Bar dataKey="deployments" fill="#2dd4bf" radius={[0, 6, 6, 0]} />
+          <Bar dataKey="deployments" fill="#0f766e" radius={[0, 6, 6, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

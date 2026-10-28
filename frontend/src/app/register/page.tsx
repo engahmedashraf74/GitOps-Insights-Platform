@@ -8,6 +8,7 @@ import {
   passwordStrength,
 } from "@/components/ui/password-input";
 import { register as registerAccount } from "@/services/auth";
+import { registerVerificationNotice } from "@/lib/verification-copy";
 import { isAuthenticated, setToken } from "@/lib/auth";
 import { getPreferences, savePreferences } from "@/lib/settings";
 import Link from "next/link";
@@ -66,8 +67,13 @@ export default function RegisterPage() {
         username.trim(),
       );
       if (data.requiresVerification || !data.access_token) {
-        setSuccess("Account created. Check your email to verify before signing in.");
-        router.push(`/verify-email?email=${encodeURIComponent(email.trim())}`);
+        const notice = registerVerificationNotice(data.emailDelivery);
+        setSuccess(notice.text);
+        const delivery =
+          data.emailDelivery === "unavailable" ? "unavailable" : "accepted";
+        router.push(
+          `/verify-email?email=${encodeURIComponent(email.trim())}&delivery=${delivery}`,
+        );
         return;
       }
       setToken(data.access_token);
